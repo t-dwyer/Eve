@@ -36,10 +36,7 @@ namespace instrGraph {
     virtual void getAnalysisUsage(llvm::AnalysisUsage &au) const override {
       au.setPreservesAll();
       au.addRequired<llvm::DataLayoutPass>();
-//      au.addRequired<llvm::AliasAnalysis>();
-      au.addRequired<llvm::DominatorTreeWrapperPass>();
     }
-
 
     virtual bool runOnModule(llvm::Module &m) override;
     virtual void print(llvm::raw_ostream &out, const llvm::Module *m) const;

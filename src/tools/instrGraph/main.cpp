@@ -58,10 +58,6 @@ main (int argc, char **argv, const char **env) {
   PassManager pm;
 
   pm.add(new DataLayoutPass(module.get()));
-  pm.add(new DominatorTreeWrapperPass());
-  pm.add(new instrGraph::DependencyPass);
-
-  pm.add(new DomGraphPrinter<instrGraph::DependencyPass>(outs()));
   pm.add(new instrGraph::DependencyPass);
   pm.add(new DomGraphPrinter<instrGraph::DependencyPass>(outs()));
   pm.run(*module);

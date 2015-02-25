@@ -3,8 +3,13 @@
 char DependencyPass::ID = 0;
 RegisterPass<DependencyPass> X("instrDepGraph","construct an instruction dependency graph");
 
-bool header = true;
 int clustNum = 0;
+
+//Data structure is:
+// unordered_map<Source, unordered_map< Destintion, Edge Type>>
+// Source is a value/instruction/node
+// Destination is a value/instruction/node
+// Edge type is Data, Control, Flow
 unordered_map<Value*,unordered_map<Value*,vector<string>>> node_map;
 
 void
@@ -115,7 +120,8 @@ traceBack(Value &input) {
       BasicBlock *pred = *predIt;
       Value *control = dyn_cast<Value>(pred->getTerminator());
       traceBack(*control);
-      addEdge(*control,input,"control"+to_string(temp));
+      addEdge(*control,input,"control");
+//      addEdge(*control,input,"control"+to_string(temp));
       temp++;
     }
 
@@ -131,7 +137,7 @@ removeRedCtrEdge(Value &control, BasicBlock *inTarget){
 
   for (auto &parent : *targetBlock) {
     auto parentNode = node_map.find(&parent);
-    if (parentNode == node_map.end() ) { outs() << "findRedundant fail1 \n"; return; }
+    if (parentNode == node_map.end() ) { /* outs() << "findRedundant fail1 \n"; */ return; }
 
     auto parentEdges = parentNode->second;
 
@@ -143,7 +149,7 @@ removeRedCtrEdge(Value &control, BasicBlock *inTarget){
         //AND an Edge between control and child (above)
         if (dupEdge->first != dyn_cast<Value>(targetBlock->getFirstNonPHI())) {
           //AND that edge is not the first, incomming edge to BB
-          addEdge(parent,*child.first,"control");
+          addEdge(parent,*child.first,"flow");
           delEdge(control, *child.first);
         }
       }
@@ -151,23 +157,32 @@ removeRedCtrEdge(Value &control, BasicBlock *inTarget){
   }
 }
 
-void
-removeRedCtrNode() {
-  for (auto n : node_map) {
-    auto node = n.first;
-    if (isa<BranchInst>(node)) {
-      Instruction *target = dyn_cast<Instruction>(node);
+bool
+DependencyPass::runOnModule(Module &m) {
+  for (auto &f : m) {
+    for (auto &b : f) {
 
+      //Add all edges to nodes
+      for (auto &i : b) {
+        traceBack(i);
+      }
+
+      //Add in flow edges      
+      for (auto predIt = pred_begin(&b), end = pred_end(&b); predIt != end; ++predIt) {
+        BasicBlock *pred = *predIt;
+        if (pred->getTerminator()) {
+          Value *control = dyn_cast<Value>(pred->getTerminator());
+          removeRedCtrEdge(*control,&b);
+        }
+      }
+      
     }
   }
+  return false;
 }
 
-void
-print_clustNode(Value &input) {
-  if (isa<DbgInfoIntrinsic>(input)) return;
-  outs() << &input << ";\n";
-}
 
+//Following 3 functions used for clustering instructions
 void 
 print_clustH(string label, string color, bool header) {
   if (header) {
@@ -181,136 +196,93 @@ print_clustH(string label, string color, bool header) {
   }
 }
 
+void
+print_clustNode(const Value &input) {
+  if (isa<DbgInfoIntrinsic>(input)) return;
+  outs() << &input << ";\n";
+}
 
 void 
-clust_data(Value &input) {
+clust_data(const Value &input) {
   print_clustNode(input);
-  for (User *U : input.users()) {
+  for (const User *U : input.users()) {
     clust_data(*dyn_cast<Value>(U));  
   }
 }
 
-
-
-
-bool
-DependencyPass::runOnModule(Module &m) {
-  bool SERIAL = false;
-  bool BLOCKS = false;
-  bool DATAGRP = true;
-  if (header) return false;
-
-  if (BLOCKS) print_clustH("Main Module","white",true);
-  for (auto &f : m) {
-    Value *prevInstr = NULL;
-
-    if (BLOCKS) print_clustH(f.getName(),"lightgray",true);
-    for (auto &b : f) {
-
-      if (BLOCKS) print_clustH("BB","lightblue",true);
-      for (auto &i : b) {
-
-        traceBack(i);
-
-        if (DATAGRP && !strcmp(i.getOpcodeName(),"alloca")) {
-          print_clustH(i.getName(),"lightblue",true);
-          clust_data(*dyn_cast<User>(&i));
-          print_clustH(i.getName(),"lightblue",false);
-        }
-        if (BLOCKS) print_clustNode(i);
-        if (SERIAL && prevInstr) {addEdge(*prevInstr,*dyn_cast<Value>(&i),"serial"); }
-        prevInstr = &i;
-
-      }
-
-      if (BLOCKS) print_clustH("BB","lightblue",false);
-
-    }
-    if (BLOCKS) print_clustH(f.getName(),"lightgray",false);
-
-
-  }
-  if (BLOCKS) print_clustH("module","white",false);
-
-
-/*
-  for (auto &f : m) {
-    for (auto &b : f) {
-      for (auto predIt = pred_begin(&b), end = pred_end(&b); predIt != end; ++predIt) {
-        BasicBlock *pred = *predIt;
-        if (pred->getTerminator()) {
-          Value *control = dyn_cast<Value>(pred->getTerminator());
-          removeRedCtrEdge(*control,&b);
-        }
-      }
-    }
-  }
-*/
-  /******End of analysis on LLVM IR**************/
-  /******Start of optimization on node_map*******/
-
-//  removeRedCtrNode();
-
-
-  return false;
-}
-
-
 //Prints out the graph in a graphviz friendly way
 void
 DependencyPass::print(raw_ostream &out, const Module *m) const {
-  if (header) {
-    out << "digraph {\n  node [shape=record];\n";
-    header = false;
-  } else {
 
-    for (auto n : node_map) {
-      string name = "Unknown";
-      string var = "";
-      if (isa<Instruction>(n.first)) {
-        Instruction *nInstr = dyn_cast<Instruction>(n.first);
-        name = nInstr->getOpcodeName();
-        var = nInstr->getName();
-      } else {
-        name = n.first->getName();
-      }
+  bool BLOCKS = false;
+  bool DATAGRP = false;
+  out << "digraph {\n  node [shape=record];\n";
 
-      out << " " << n.first
-        << "[label=\"{" << name << ":" << var
-        << "}\"];\n";
+  for (auto n : node_map) {
+    string name = "Unknown";
+    string var = "";
+    if (isa<Instruction>(n.first)) {
+      Instruction *nInstr = dyn_cast<Instruction>(n.first);
+      name = nInstr->getOpcodeName();
+      var = nInstr->getName();
+    } else {
+      name = n.first->getName();
     }
 
-    string color = "black";
-
-    // Print the edges between them
-    for (auto node : node_map) {  //Move through all source functions 
-      // node_map = unordered_map, node.first = from Instruction, node.second = unordered_map
-      for (auto target : node.second) { //Move through all target
-        //node.second = unordered_map, target.first = to Instruction, node.second = edge vector
-        for (auto edge : target.second) { ///Move through all edges between target
-          //target.second = vector<string>, edge = edge code between from and to
-          if (edge == "control0") {
-            color = "green";
-          } else if (edge == "control1") {
-            color = "red";
-          } else if (edge == "data") {
-            color = "black";
-          } else if (edge == "test") {
-            color = "pink";
-          } else if (edge == "serial") {
-            color = "red";
-          } else {
-            color = "blue";
-          }
-          out << "  " <<  node.first
-            << " -> " << target.first << "[color=" << color << "];\n";
-        }
-      }
-    }
-
-
-
-    out << "}\n";
+    out << " " << n.first
+      << "[label=\"{" << name << ":" << var
+      << "}\"];\n";
   }
+
+  string color = "black";
+
+  // Print the edges between them
+  for (auto node : node_map) {  //Move through all source functions 
+    // node_map = unordered_map, node.first = from Instruction, node.second = unordered_map
+    for (auto target : node.second) { //Move through all target
+      //node.second = unordered_map, target.first = to Instruction, node.second = edge vector
+      for (auto edge : target.second) { ///Move through all edges between target
+        //target.second = vector<string>, edge = edge code between from and to
+        if (edge == "control0" || edge == "control") {
+          color = "green";
+        } else if (edge == "control1") {
+          color = "red";
+        } else if (edge == "data") {
+          color = "black";
+        } else if (edge == "test") {
+          color = "pink";
+        } else if (edge == "flow") {
+          color = "blue";
+        } else {
+          color = "blue";
+        }
+        out << "  " <<  node.first
+          << " -> " << target.first << "[color=" << color << "];\n";
+      }
+    }
+  }
+
+
+  if (BLOCKS) print_clustH("Main Module","white",true);
+  for (auto &f : *m) {
+    if (BLOCKS) print_clustH(f.getName(),"lightgray",true);
+    for (auto &b : f) {
+      if (BLOCKS) print_clustH("BB","lightblue",true);
+      for (auto &i : b) {
+        if (DATAGRP && !strcmp(i.getOpcodeName(),"alloca")) {
+          print_clustH(i.getName(),"lightblue",true);
+          clust_data(*dyn_cast<Value>(&i));
+          print_clustH(i.getName(),"lightblue",false);
+        }
+        if (BLOCKS) print_clustNode(*dyn_cast<Value>(&i));
+      }
+      if (BLOCKS) print_clustH("BB","lightblue",false);
+    }
+    if (BLOCKS) print_clustH(f.getName(),"lightgray",false);
+  }
+  if (BLOCKS) print_clustH("module","white",false);
+
+  out << "}\n";
+
 }
 
