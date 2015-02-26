@@ -3,6 +3,10 @@
 char DependencyPass::ID = 0;
 RegisterPass<DependencyPass> X("instrDepGraph","construct an instruction dependency graph");
 
+//Value *ErrorV(const char *Str) { Error(Str); return 0; }
+static IRBuilder<> Builder(getGlobalContext());
+static map<std::string, Value*> NamedValues;
+
 int clustNum = 0;
 
 //Data structure is:
@@ -83,19 +87,22 @@ findStoreInstr(Value &input, BasicBlock &bb, unordered_set<BasicBlock*> history)
 void
 traceBack(Value &input) {
 
+  //Ignore debug instructions
   if (isa<DbgInfoIntrinsic>(input)) return;
 
-  auto itr = node_map.find(&input); 
-  if (itr != node_map.end()) { return; } 
+  //Ignore instructions we have added already
+  if (node_map.find(&input) != node_map.end()) { return; } 
+  
+  //Add this instruction - Note: All edges from this node must be added here, it will not be analyzed again
   addNode(input);
 
   if (isa<Instruction>(input)) {   
     Instruction *instr = dyn_cast<Instruction>(&input);
     BasicBlock *parentBB = instr->getParent();
 
-    //Search through current branch block, until hit beginning (needed?)
+    //If it's a load instruction, we need to find ALL possible store instructions
     if (isa<LoadInst>(instr)) {
-      //Search through all predesessor BBs until find store
+      //Search through all predesessor BBs until find store (LLVM does not store in a BB (I think))
       for (auto predIt = pred_begin(parentBB), end = pred_end(parentBB); predIt != end; ++predIt) {
         BasicBlock *pred = *predIt;
         unordered_set<BasicBlock*> history;
@@ -159,11 +166,17 @@ removeRedCtrEdge(Value &control, BasicBlock *inTarget){
 
 bool
 DependencyPass::runOnModule(Module &m) {
+
+  Value *startNode = Builder.CreateUnreachable();
+  addNode(*startNode); 
   for (auto &f : m) {
     for (auto &b : f) {
 
       //Add all edges to nodes
       for (auto &i : b) {
+        if (f.getName() == "main") {
+          addEdge(*startNode,i,"control"); 
+        }
         traceBack(i);
       }
 
@@ -173,8 +186,10 @@ DependencyPass::runOnModule(Module &m) {
         if (pred->getTerminator()) {
           Value *control = dyn_cast<Value>(pred->getTerminator());
           removeRedCtrEdge(*control,&b);
+          removeRedCtrEdge(*startNode,pred);
         }
       }
+      removeRedCtrEdge(*startNode,&b);
       
     }
   }
@@ -229,6 +244,7 @@ DependencyPass::print(raw_ostream &out, const Module *m) const {
       name = n.first->getName();
     }
 
+    if (name == "unreachable") name = "Start";
     out << " " << n.first
       << "[label=\"{" << name << ":" << var
       << "}\"];\n";

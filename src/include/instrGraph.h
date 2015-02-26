@@ -22,6 +22,7 @@
 #include "llvm/IR/GlobalVariable.h"
 
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/IRBuilder.h"
 
 #include <unordered_map>
 #include <unordered_set>
