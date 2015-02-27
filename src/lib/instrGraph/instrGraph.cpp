@@ -87,7 +87,6 @@ findStoreInstr(Value &input, BasicBlock &bb, unordered_set<BasicBlock*> history)
   }
 }
 
-
 void
 traceBack(Value &input) {
 
@@ -171,16 +170,17 @@ removeRedCtrEdge(Value &control, BasicBlock *inTarget){
 bool
 DependencyPass::runOnModule(Module &m) {
 
-  Value *startNode = Builder.CreateUnreachable();
-  addNode(*startNode); 
+
   for (auto &f : m) {
+
+    Value *startNode = Builder.CreateUnreachable();
+    addNode(*startNode); 
+    
     for (auto &b : f) {
 
       //Add all edges to nodes
       for (auto &i : b) {
-        if (f.getName() == "main") {
-          addEdge(*startNode,i,"control"); 
-        }
+        addEdge(*startNode,i,"control");     
         traceBack(i);
       }
 
@@ -197,6 +197,7 @@ DependencyPass::runOnModule(Module &m) {
       
     }
   }
+
   return false;
 }
 
@@ -236,6 +237,7 @@ DependencyPass::print(raw_ostream &out, const Module *m) const {
   bool FUNCTION = true;
   bool BLOCKS = false;
   bool DATAGRP = true;
+
   out << "digraph {\n  node [shape=record];\n";
 
   for (auto n : node_map) {
@@ -249,7 +251,11 @@ DependencyPass::print(raw_ostream &out, const Module *m) const {
       name = n.first->getName();
     }
 
-    if (name == "unreachable") name = "Start";
+    if (name == "unreachable") {
+      name = "Start";
+      if (n.second.size() == 0) continue; //Don't add empty start nodes
+    }
+
     out << " " << n.first
       << "[label=\"{" << name << ":" << var
       << "}\"];\n";
