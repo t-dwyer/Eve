@@ -121,33 +121,22 @@ traceBack(Value &input) {
         addEdge(*target, input, "data");
       }
     }
-
-
-    //Add control dependencies, and recurse
-    int temp = 0;
-
-    for (auto predIt = pred_begin(parentBB), end = pred_end(parentBB); predIt != end; ++predIt) {
-      BasicBlock *pred = *predIt;
-      Value *control = dyn_cast<Value>(pred->getTerminator());
-      traceBack(*control);
-//      addEdge(*control,input,"control");
-      addEdge(*control,input,"control"+to_string(temp));
-      temp++;
-    }
-
   }
 }
+
+
 
 void
 removeRedCtrEdge(Value &control, BasicBlock *inTarget){
 
   BasicBlock *targetBlock = inTarget;
   auto controlNode = node_map.find(&control);
+  if (controlNode == node_map.end()) return;
   auto controlEdges = controlNode->second;
 
   for (auto &parent : *targetBlock) {
     auto parentNode = node_map.find(&parent);
-    if (parentNode == node_map.end() ) { /* outs() << "findRedundant fail1 \n"; */ return; }
+    if (parentNode == node_map.end() ) { return; }
 
     auto parentEdges = parentNode->second;
 
@@ -165,26 +154,47 @@ removeRedCtrEdge(Value &control, BasicBlock *inTarget){
       }
     }
   }
+  
 }
+
+
 
 bool
 DependencyPass::runOnModule(Module &m) {
-
-
   for (auto &f : m) {
-
     Value *startNode = Builder.CreateUnreachable();
     addNode(*startNode); 
-    
-    for (auto &b : f) {
 
-      //Add all edges to nodes
+    for (auto &b : f) {     
       for (auto &i : b) {
-        addEdge(*startNode,i,"control");     
-        traceBack(i);
+
+        /****** Add all DATA dependencies ******/
+        traceBack(i); 
+
+        /****** Add start node control dependencies ******/
+        if (&b == &f.front()) 
+          addEdge(*startNode,i,"control");     
+
+        /***** Add in all control dependencies *****/
+        if (isa<BranchInst>(&i)) {
+          BranchInst *branch = dyn_cast<BranchInst>(&i);
+          if (branch->isUnconditional()) {
+            for (unsigned suc = 0; suc < branch->getNumSuccessors(); ++suc) {
+              for (auto &child : *branch->getSuccessor(suc)) {
+                addEdge(i,child,"control");
+              }
+            }
+          } else {
+            for (unsigned suc = 0; suc < branch->getNumSuccessors(); ++suc) {
+              for (auto &child : *branch->getSuccessor(suc)) {
+                addEdge(i,child,"control"+ to_string(suc));
+              }
+            }
+          }
+        }
       }
 
-      //Add in flow edges      
+      /***** Move redundent controle edges into flow edges ******/
       for (auto predIt = pred_begin(&b), end = pred_end(&b); predIt != end; ++predIt) {
         BasicBlock *pred = *predIt;
         if (pred->getTerminator()) {
@@ -192,12 +202,46 @@ DependencyPass::runOnModule(Module &m) {
           removeRedCtrEdge(*control,&b);
           removeRedCtrEdge(*startNode,pred);
         }
+
       }
       removeRedCtrEdge(*startNode,&b);
-      
     }
   }
+  
+  //Remove un-necessary branch statement edges
+  bool flag = true;
+  while(flag) {
+    flag = false;
+    for (auto n : node_map) {
+      if (isa<BranchInst>(n.first) && dyn_cast<BranchInst>(n.first)->isConditional()) {
+        //Node 'n' is an conditional branch instruction
+        for (auto child : n.second) {
+          if (isa<BranchInst>(child.first) && dyn_cast<BranchInst>(child.first)->isUnconditional()) {
+            //Node 'n' has a child, 'child', that is an unconditional branch. Merge.
+            for (auto childEdge : node_map.find(child.first)->second) {
+              addEdge(*n.first,*childEdge.first,child.second[0]);
+              delEdge(*n.first,*child.first);
+              flag = true;
+            }
+          }
 
+        }
+      } 
+    }
+  }
+  
+  
+  //Remove the unconditional branch instr
+  for (auto &f : m) {
+    for (auto &b : f) {
+      for (auto &i : b) {
+        if (isa<BranchInst>(&i) && dyn_cast<BranchInst>(&i)->isUnconditional()) {
+         node_map.erase(&i);
+        }
+      }
+    }
+  }
+  
   return false;
 }
 
@@ -219,6 +263,7 @@ print_clustH(string label, string color, bool header) {
 void
 print_clustNode(const Value &input) {
   if (isa<DbgInfoIntrinsic>(input)) return;
+//  if (isa<BranchInst>(&input) && dyn_cast<BranchInst>(&input)->isUnconditional()) return;
   outs() << &input << ";\n";
 }
 
@@ -270,14 +315,16 @@ DependencyPass::print(raw_ostream &out, const Module *m) const {
       //node.second = unordered_map, target.first = to Instruction, node.second = edge vector
       for (auto edge : target.second) { ///Move through all edges between target
         //target.second = vector<string>, edge = edge code between from and to
-        if (edge == "control0" || edge == "control") {
+        if (edge == "control") {
+          color = "chocolate";
+        } else if (edge == "control0") {
           color = "green";
         } else if (edge == "control1") {
           color = "red";
         } else if (edge == "data") {
           color = "black";
         } else if (edge == "test") {
-          color = "pink";
+          color = "yellow";
         } else if (edge == "flow") {
           color = "blue";
         } else {
@@ -296,7 +343,7 @@ DependencyPass::print(raw_ostream &out, const Module *m) const {
     for (auto &b : f) {
       if (BLOCKS) print_clustH("BB","lightblue",true);
       for (auto &i : b) {
-        if (DATAGRP && !strcmp(i.getOpcodeName(),"alloca")) {
+        if (DATAGRP && !strcmp(i.getOpcodeName(),"alloca") ) {
           print_clustH(i.getName(),"lightblue",true);
           clust_data(*dyn_cast<Value>(&i));
           print_clustH(i.getName(),"lightblue",false);
