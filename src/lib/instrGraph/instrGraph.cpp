@@ -58,9 +58,13 @@ addNode(Value &i) {
 void 
 findStoreInstr(Value &input, BasicBlock &bb, unordered_set<BasicBlock*> history){
 
+  if (dyn_cast<Instruction>(&input)->getParent() == &bb) return;
+
+  //History of blocks 
   if (history.find(&bb) != history.end()) return;
   else history.insert(&bb);
 
+  //Move backwards through the BB's instructions
   for (BasicBlock::reverse_iterator rI = bb.rbegin(), E = bb.rend(); rI != E; rI++){
 
     Instruction *compInstr = &*rI;
@@ -127,8 +131,8 @@ traceBack(Value &input) {
       BasicBlock *pred = *predIt;
       Value *control = dyn_cast<Value>(pred->getTerminator());
       traceBack(*control);
-      addEdge(*control,input,"control");
-//      addEdge(*control,input,"control"+to_string(temp));
+//      addEdge(*control,input,"control");
+      addEdge(*control,input,"control"+to_string(temp));
       temp++;
     }
 
@@ -228,9 +232,10 @@ clust_data(const Value &input) {
 //Prints out the graph in a graphviz friendly way
 void
 DependencyPass::print(raw_ostream &out, const Module *m) const {
-
+  bool MODULE = false;
+  bool FUNCTION = true;
   bool BLOCKS = false;
-  bool DATAGRP = false;
+  bool DATAGRP = true;
   out << "digraph {\n  node [shape=record];\n";
 
   for (auto n : node_map) {
@@ -279,9 +284,9 @@ DependencyPass::print(raw_ostream &out, const Module *m) const {
   }
 
 
-  if (BLOCKS) print_clustH("Main Module","white",true);
+  if (MODULE) print_clustH("Main Module","white",true);
   for (auto &f : *m) {
-    if (BLOCKS) print_clustH(f.getName(),"lightgray",true);
+    if (FUNCTION) print_clustH(f.getName(),"lightgray",true);
     for (auto &b : f) {
       if (BLOCKS) print_clustH("BB","lightblue",true);
       for (auto &i : b) {
@@ -290,13 +295,13 @@ DependencyPass::print(raw_ostream &out, const Module *m) const {
           clust_data(*dyn_cast<Value>(&i));
           print_clustH(i.getName(),"lightblue",false);
         }
-        if (BLOCKS) print_clustNode(*dyn_cast<Value>(&i));
+        if (BLOCKS | FUNCTION | MODULE) print_clustNode(*dyn_cast<Value>(&i));
       }
       if (BLOCKS) print_clustH("BB","lightblue",false);
     }
-    if (BLOCKS) print_clustH(f.getName(),"lightgray",false);
+    if (FUNCTION) print_clustH(f.getName(),"lightgray",false);
   }
-  if (BLOCKS) print_clustH("module","white",false);
+  if (MODULE) print_clustH("module","white",false);
 
   out << "}\n";
 
