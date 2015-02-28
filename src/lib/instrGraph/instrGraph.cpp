@@ -56,24 +56,16 @@ addNode(Value &i) {
 }
 
 void 
-findStoreInstr(Value &input, BasicBlock &bb, unordered_set<BasicBlock*> history){
-
-  if (dyn_cast<Instruction>(&input)->getParent() == &bb) return;
-
-  //History of blocks 
-  if (history.find(&bb) != history.end()) return;
-  else history.insert(&bb);
-
+findStoreInstr(Value &input, BasicBlock &bb){
   //Move backwards through the BB's instructions
   for (BasicBlock::reverse_iterator rI = bb.rbegin(), E = bb.rend(); rI != E; rI++){
-
     Instruction *compInstr = &*rI;
     if (isa<StoreInst>(compInstr)) {
       StoreInst *store = dyn_cast<StoreInst>(compInstr);
       LoadInst *load = dyn_cast<LoadInst>(&input);
       if (store->getPointerOperand() == load->getPointerOperand()) {
         Value *storeVal = dyn_cast<Value>(store);
-        traceBack(*storeVal);
+        if (node_map.find(store) == node_map.end()) traceBack(*storeVal);
         addEdge(*storeVal,input,"data");
         return;
       }
@@ -81,9 +73,10 @@ findStoreInstr(Value &input, BasicBlock &bb, unordered_set<BasicBlock*> history)
   }
 
   //Store instruction was *not* found in this BB, go to its parents and continue...
+  //TO IMPLEMENT
   for (pred_iterator predIt = pred_begin(&bb), end = pred_end(&bb); predIt != end; ++predIt) {
-    BasicBlock *pred = *predIt;
-    findStoreInstr(input,*pred,history);
+//    BasicBlock *pred = *predIt;
+//    findStoreInstr(input,*pred);
   }
 }
 
@@ -106,10 +99,11 @@ traceBack(Value &input) {
     //If it's a load instruction, we need to find ALL possible store instructions
     if (isa<LoadInst>(instr)) {
       //Search through all predesessor BBs until find store (LLVM does not store in a BB (I think))
+
+      findStoreInstr(input,*parentBB);
       for (auto predIt = pred_begin(parentBB), end = pred_end(parentBB); predIt != end; ++predIt) {
         BasicBlock *pred = *predIt;
-        unordered_set<BasicBlock*> history;
-        findStoreInstr(input,*pred,history);
+        findStoreInstr(input,*pred);
       }
     }
 
@@ -281,7 +275,7 @@ DependencyPass::print(raw_ostream &out, const Module *m) const {
   bool MODULE = false;
   bool FUNCTION = true;
   bool BLOCKS = false;
-  bool DATAGRP = true;
+  bool DATAGRP = false;
 
   out << "digraph {\n  node [shape=record];\n";
 
@@ -322,6 +316,7 @@ DependencyPass::print(raw_ostream &out, const Module *m) const {
         } else if (edge == "control1") {
           color = "red";
         } else if (edge == "data") {
+          continue;
           color = "black";
         } else if (edge == "test") {
           color = "yellow";
