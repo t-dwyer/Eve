@@ -1,5 +1,6 @@
 #include "main.h"
 #include "instrGraph.h"
+#include "blockSplit.h"
 
 namespace {
   cl::opt<string>
@@ -58,8 +59,10 @@ main (int argc, char **argv, const char **env) {
   PassManager pm;
 
   pm.add(new DataLayoutPass(module.get()));
+  pm.add(new blockSplit::blockSplitPass);
   pm.add(new instrGraph::DependencyPass);
   pm.add(new DomGraphPrinter<instrGraph::DependencyPass>(outs()));
+
   pm.run(*module);
 
   return 0;

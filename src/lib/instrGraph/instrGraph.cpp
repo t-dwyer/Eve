@@ -19,8 +19,8 @@ static IRBuilder<> Builder(getGlobalContext());
 //CLustering related
 bool MODULE = false;
 bool FUNCTION = false;
-bool BLOCKS = false;
-bool DATAGRP = true;
+bool BLOCKS = true;
+bool DATAGRP = false;
 bool LEVELS = false;
 int clustNum = 0;
 
@@ -173,7 +173,6 @@ traceBack(Value &input) {
 //      findStoreInstr(input,*parentBB,history);
       for (auto predIt = pred_begin(parentBB), end = pred_end(parentBB); predIt != end; ++predIt) {
 //        BasicBlock *pred = *predIt;
-
 //        findStoreInstr(input,*pred,history);
       }
     }
@@ -198,6 +197,7 @@ addControl(Value &input) {
       for (auto &child : *branch->getSuccessor(suc)) {
         addChild(input,child,"control");
         addParent(child,input,"control");
+        break;
       }
     }
   } else {
@@ -205,6 +205,7 @@ addControl(Value &input) {
       for (auto &child : *branch->getSuccessor(suc)) {
         addChild(input,child,"control" + to_string(suc));
         addParent(child,input,"control" + to_string(suc));
+        break;
       }
     }
   }
@@ -312,8 +313,8 @@ DependencyPass::print(raw_ostream &out, const Module *m) const {
       if (v.second.children.size() == 0) continue; //Don't add empty start nodes
     }
 
-    //Print graphviz node
-    out << " " << v.first << "[label=\"{" << name << ":" << var << v.second.level << "}\"];\n";
+    //Print graphviz node, removed v.second.level
+    out << " " << v.first << "[label=\"{" << name << ":" << var << "}\"];\n";
   }
 
   string color = "black";

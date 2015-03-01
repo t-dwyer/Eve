@@ -3,7 +3,7 @@ clang++-3.5 -O0 -g0 -c -emit-llvm $1 -o build/cur.bc
 echo "clang++ .cpp to .bc complete"
 llvm-dis build/cur.bc -o build/cur.ll
 clang++-3.5 -pthreads build/cur.ll -o build/$2
-scp build/$2 sumi.cs.sfu.ca:~/$2
+#scp build/$2 sumi.cs.sfu.ca:~/$2
 echo "llvm-dis .bc to .ll complete"
 
 #opt -mem2reg -S build/cur.ll -o build/cur.ll
