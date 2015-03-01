@@ -214,7 +214,7 @@ void
 getOrdering(Vertex &v, int depth) {
   if (vertex_order.find(&v) != vertex_order.end()) return;
   vertex_order[&v] = depth;
-  vertex_map[v.valp].level = depth;
+  vertex_map[v.val].level = depth;
   for (auto child : v.children) {
     getOrdering(vertex_map[child.first],depth+1);
   }
