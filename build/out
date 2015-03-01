@@ -1,0 +1,19 @@
+/home/tdwyer/Dropbox/Life/4-SFU_PhD/Class/CMPT886/instrGraph/lib/instrGraph/instrGraph.cpp:8:18: warning: unused variable 'AA' [-Wunused-variable]
+  AliasAnalysis &AA = getAnalysis<AliasAnalysis>();
+                 ^
+/home/tdwyer/Dropbox/Life/4-SFU_PhD/Class/CMPT886/instrGraph/lib/instrGraph/instrGraph.cpp:9:18: warning: unused variable 'DT' [-Wunused-variable]
+  DominatorTree &DT = getAnalysis<DominatorTree>();
+                 ^
+In file included from /home/tdwyer/Dropbox/Life/4-SFU_PhD/Class/CMPT886/instrGraph/lib/instrGraph/instrGraph.cpp:1:
+In file included from /home/tdwyer/Dropbox/Life/4-SFU_PhD/Class/CMPT886/instrGraph/build/../include/instrGraph.h:2:
+In file included from /home/tdwyer/bin/llvm/include/llvm/Pass.h:378:
+/home/tdwyer/bin/llvm/include/llvm/PassAnalysisSupport.h:201:53: error: no member named 'ID' in 'llvm::DominatorTree'
+  return getAnalysisID<AnalysisType>(&AnalysisType::ID);
+                                      ~~~~~~~~~~~~~~^
+/home/tdwyer/Dropbox/Life/4-SFU_PhD/Class/CMPT886/instrGraph/lib/instrGraph/instrGraph.cpp:9:23: note: in instantiation of function template specialization 'llvm::Pass::getAnalysis<llvm::DominatorTree>' requested here
+  DominatorTree &DT = getAnalysis<DominatorTree>();
+                      ^
+2 warnings and 1 error generated.
+make[2]: *** [/home/tdwyer/Dropbox/Life/4-SFU_PhD/Class/CMPT886/instrGraph/build/lib/instrGraph/Debug+Asserts/instrGraph.o] Error 1
+make[1]: *** [all] Error 1
+make: *** [all] Error 1

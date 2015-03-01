@@ -1,62 +1,137 @@
 #include "instrGraph.h"
 
+//Datastructure related
+struct Vertex {
+  Value* val;
+  unordered_map<Value*, unordered_set<string>> parents;
+  unordered_map<Value*, unordered_set<string>> children;
+  int level;
+};
+
+unordered_map<Value*,Vertex> vertex_map;
+
+//LLVM Related
 char DependencyPass::ID = 0;
 RegisterPass<DependencyPass> X("instrDepGraph","construct an instruction dependency graph");
-
-//Value *ErrorV(const char *Str) { Error(Str); return 0; }
 static IRBuilder<> Builder(getGlobalContext());
-static map<std::string, Value*> NamedValues;
 
+
+//CLustering related
+bool MODULE = false;
+bool FUNCTION = false;
+bool BLOCKS = false;
+bool DATAGRP = true;
+bool LEVELS = false;
 int clustNum = 0;
 
-//Data structure is:
-// unordered_map<Source, unordered_map< Destintion, Edge Type>>
-// Source is a value/instruction/node
-// Destination is a value/instruction/node
-// Edge type is Data, Control, Flow
-unordered_map<Value*,unordered_map<Value*,vector<string>>> node_map;
+//GraphViz Edge related
+bool CONTROL_ONLY = false;
+bool DATA_ONLY = false;
+
+unordered_map<Vertex*, int> vertex_order;
+
+
+Vertex*
+addNode(Value &i) {
+  unordered_map<Value*,unordered_set<string>> parents; //Initialize parent edges
+  unordered_map<Value*,unordered_set<string>> children; //Initialize child edges
+  
+  Vertex input; 
+  input.val = &i;
+  input.parents = parents;
+  input.children = children;
+  
+  vertex_map[input.val] = input;
+
+  return &vertex_map[input.val];
+}
+
+void 
+addChild(Value &from, Value &child, string type) {
+  if (isa<DbgInfoIntrinsic>(from) || isa<DbgInfoIntrinsic>(child)) { return; }
+  if (vertex_map.find(&from) == vertex_map.end()) addNode(from); 
+  if (vertex_map.find(&child) == vertex_map.end()) addNode(child);
+
+  //Add 'child' as a child to the 'from' node
+  auto *curChildren = &vertex_map[&from].children; 
+  if ((*curChildren).find(&child) == (*curChildren).end()) { //Child has not been added before
+    unordered_set<string> edge_types;
+    edge_types.insert(type);
+    (*curChildren)[&child] = edge_types;
+  } else { //Child exists, add new edge type
+    (*curChildren)[&child].insert(type);  
+  }
+
+  //Add 'from' as a parent to the 'child' node
+  auto *curParents = &vertex_map[&child].parents; 
+  if ((*curParents).find(&from) == (*curParents).end()) { //Has no parents, is batman
+    unordered_set<string> edge_types;
+    edge_types.insert(type);
+    (*curParents)[&from] = edge_types;
+  } else { //Parents exists, add new edge type
+    (*curParents)[&from].insert(type);  
+  }
+
+}
 
 void
-addEdge(Value &from, Value &to, string type) {
-  if (isa<DbgInfoIntrinsic>(from) || isa<DbgInfoIntrinsic>(to)) { return; }
+addParent(Value &from, Value &parent, string type) {
+  if (isa<DbgInfoIntrinsic>(from) || isa<DbgInfoIntrinsic>(parent)) { return; }
+  if (vertex_map.find(&from) == vertex_map.end()) addNode(from);
+  if (vertex_map.find(&parent) == vertex_map.end()) addNode(parent);
 
-  auto fromLoc = node_map.find(&from); //Find to 'from' instruction
-  if (fromLoc == node_map.end()) {  outs() << "FAIL" << from << "\n";  return;  }
+  //Add 'parent' as a parent to the 'from' node
+  auto *curParents = &vertex_map[&from].parents; 
+  if ((*curParents).find(&parent) == (*curParents).end()) { //Has no parents, is batman
+    unordered_set<string> edge_types;
+    edge_types.insert(type);
+    (*curParents)[&parent] = edge_types;
+  } else { //Parents exists, add new edge type
+    (*curParents)[&parent].insert(type);  
+  }
 
-  auto targetEdge = fromLoc->second.find(&to);
-  if (targetEdge == fromLoc->second.end()) { //Edge does not exit, initialize it
-    vector<string> edge_vec;
-    edge_vec.push_back(type);
-    fromLoc->second.insert(make_pair(&to,edge_vec));
-  } else { //Other edges exist, test to see if same color edge exists already
-    bool exist = false;
-    for (auto targetType : targetEdge->second) {
-      if (targetType == type) {
-        exist = true;
-        break;
-      }   
-    }   
-    if (!exist) { //Edge of same color does not exist, add it
-      targetEdge->second.push_back(type);
-    }   
+  //Add 'from' as a child of the 'parent' node
+  auto *curChildren = &vertex_map[&parent].children; 
+  if ((*curChildren).find(&from) == (*curChildren).end()) { //Child has not been added before
+    unordered_set<string> edge_types;
+    edge_types.insert(type);
+    (*curChildren)[&from] = edge_types;
+  } else { //Child exists, add new edge type
+    (*curChildren)[&from].insert(type);  
   }
 }
 
 void
-delEdge(Value &from, Value &to) {
-  auto fromLoc = node_map.find(&from);
-  if (fromLoc == node_map.end()) { outs() << "Should not happen \n"; return; }
-  fromLoc->second.erase(&to);
+delChildEdges(Value &from, Value &to) {
+  if (vertex_map.find(&from) == vertex_map.end()) { 
+    outs() << "Error: delEdge - Cannot find 'from' vertex " << from << "\n";    return;   }
+  if (vertex_map.find(&to) == vertex_map.end()) { 
+    outs() << "Error: delEdge - Cannot find 'to' vertex " << from << "\n";    return;   }
+
+  vertex_map[&from].children.erase(&to);
+  vertex_map[&to].parents.erase(&to);
 }
 
 void
-addNode(Value &i) {
-  unordered_map<Value*,vector<string>> edges; //Initialize edges
-  node_map.insert(make_pair(&i,edges));
+delParentEdges(Value &from, Value &to) {
+  if (vertex_map.find(&from) == vertex_map.end()) { 
+    outs() << "Error: delEdge - Cannot find 'from' vertex " << from << "\n";    return;   }
+  if (vertex_map.find(&to) == vertex_map.end()) { 
+    outs() << "Error: delEdge - Cannot find 'to' vertex " << from << "\n";    return;   }
+
+  vertex_map[&from].parents.erase(&to);
+  vertex_map[&to].children.erase(&to);
 }
 
+
+
 void 
-findStoreInstr(Value &input, BasicBlock &bb){
+findStoreInstr(Value &input, BasicBlock &bb, unordered_set<BasicBlock*> history){
+  if (history.find(&bb) == history.end()) history.insert(&bb);
+  else return;
+  
+  
+
   //Move backwards through the BB's instructions
   for (BasicBlock::reverse_iterator rI = bb.rbegin(), E = bb.rend(); rI != E; rI++){
     Instruction *compInstr = &*rI;
@@ -65,32 +140,27 @@ findStoreInstr(Value &input, BasicBlock &bb){
       LoadInst *load = dyn_cast<LoadInst>(&input);
       if (store->getPointerOperand() == load->getPointerOperand()) {
         Value *storeVal = dyn_cast<Value>(store);
-        if (node_map.find(store) == node_map.end()) traceBack(*storeVal);
-        addEdge(*storeVal,input,"data");
+//        if (node_map.find(store) == node_map.end()) traceBack(*storeVal);
+        addChild(*storeVal,input,"data");
+        addParent(input,*storeVal,"data");
         return;
       }
     }
   }
 
   //Store instruction was *not* found in this BB, go to its parents and continue...
-  //TO IMPLEMENT
   for (pred_iterator predIt = pred_begin(&bb), end = pred_end(&bb); predIt != end; ++predIt) {
-//    BasicBlock *pred = *predIt;
-//    findStoreInstr(input,*pred);
+    BasicBlock *pred = *predIt;
+    findStoreInstr(input,*pred, history);
   }
 }
 
 void
 traceBack(Value &input) {
-
   //Ignore debug instructions
   if (isa<DbgInfoIntrinsic>(input)) return;
 
-  //Ignore instructions we have added already
-  if (node_map.find(&input) != node_map.end()) { return; } 
-  
-  //Add this instruction - Note: All edges from this node must be added here, it will not be analyzed again
-  addNode(input);
+  if (vertex_map.find(&input) == vertex_map.end()) addNode(input); 
 
   if (isa<Instruction>(input)) {   
     Instruction *instr = dyn_cast<Instruction>(&input);
@@ -98,12 +168,13 @@ traceBack(Value &input) {
 
     //If it's a load instruction, we need to find ALL possible store instructions
     if (isa<LoadInst>(instr)) {
-      //Search through all predesessor BBs until find store (LLVM does not store in a BB (I think))
-
-      findStoreInstr(input,*parentBB);
+      //Search through all predesessor BBs until find store
+//      unordered_set<BasicBlock*> history;
+//      findStoreInstr(input,*parentBB,history);
       for (auto predIt = pred_begin(parentBB), end = pred_end(parentBB); predIt != end; ++predIt) {
-        BasicBlock *pred = *predIt;
-        findStoreInstr(input,*pred);
+//        BasicBlock *pred = *predIt;
+
+//        findStoreInstr(input,*pred,history);
       }
     }
 
@@ -111,53 +182,52 @@ traceBack(Value &input) {
     for (int i = 0; i < int(instr->getNumOperands()); i++) {
       Value *target = dyn_cast<Value>(instr->getOperand(i));
       if (isa<Instruction>(target) || isa<GlobalVariable>(target)) {
+        addChild(*target,input, "data");
+        addParent(input,*target, "data");
         traceBack(*target);
-        addEdge(*target, input, "data");
       }
     }
   }
 }
-
-
 
 void
-removeRedCtrEdge(Value &control, BasicBlock *inTarget){
-
-  BasicBlock *targetBlock = inTarget;
-  auto controlNode = node_map.find(&control);
-  if (controlNode == node_map.end()) return;
-  auto controlEdges = controlNode->second;
-
-  for (auto &parent : *targetBlock) {
-    auto parentNode = node_map.find(&parent);
-    if (parentNode == node_map.end() ) { return; }
-
-    auto parentEdges = parentNode->second;
-
-    for (auto child : parentEdges) { 
-      auto dupEdge = controlEdges.find(dyn_cast<Value>(child.first));
-      if (dupEdge != controlEdges.end()) {
-        //There is an edge between parent and child
-        //AND an Edge between control and parent (how we found parent)
-        //AND an Edge between control and child (above)
-        if (dupEdge->first != dyn_cast<Value>(targetBlock->getFirstNonPHI())) {
-          //AND that edge is not the first, incomming edge to BB
-          addEdge(parent,*child.first,"flow");
-          delEdge(control, *child.first);
-        }
+addControl(Value &input) {
+  BranchInst *branch = dyn_cast<BranchInst>(&input);
+  if (branch->isUnconditional()) {
+    for (unsigned suc = 0; suc < branch->getNumSuccessors(); ++suc) {
+      for (auto &child : *branch->getSuccessor(suc)) {
+        addChild(input,child,"control");
+        addParent(child,input,"control");
+      }
+    }
+  } else {
+    for (unsigned suc = 0; suc < branch->getNumSuccessors(); ++suc) {
+      for (auto &child : *branch->getSuccessor(suc)) {
+        addChild(input,child,"control" + to_string(suc));
+        addParent(child,input,"control" + to_string(suc));
       }
     }
   }
-  
 }
 
-
+void
+getOrdering(Vertex &v, int depth) {
+  if (vertex_order.find(&v) != vertex_order.end()) return;
+  vertex_order[&v] = depth;
+  vertex_map[v.valp].level = depth;
+  for (auto child : v.children) {
+    getOrdering(vertex_map[child.first],depth+1);
+  }
+}
 
 bool
 DependencyPass::runOnModule(Module &m) {
+  unordered_set<Vertex*> starts;
+
   for (auto &f : m) {
     Value *startNode = Builder.CreateUnreachable();
-    addNode(*startNode); 
+    Vertex *startVertex = addNode(*startNode);
+    starts.insert(startVertex);
 
     for (auto &b : f) {     
       for (auto &i : b) {
@@ -166,78 +236,28 @@ DependencyPass::runOnModule(Module &m) {
         traceBack(i); 
 
         /****** Add start node control dependencies ******/
-        if (&b == &f.front()) 
-          addEdge(*startNode,i,"control");     
+        if (&b == &f.front()) {
+          addChild(*startNode,i,"control");
+          addParent(i,*startNode,"control");
+        }
 
         /***** Add in all control dependencies *****/
-        if (isa<BranchInst>(&i)) {
-          BranchInst *branch = dyn_cast<BranchInst>(&i);
-          if (branch->isUnconditional()) {
-            for (unsigned suc = 0; suc < branch->getNumSuccessors(); ++suc) {
-              for (auto &child : *branch->getSuccessor(suc)) {
-                addEdge(i,child,"control");
-              }
-            }
-          } else {
-            for (unsigned suc = 0; suc < branch->getNumSuccessors(); ++suc) {
-              for (auto &child : *branch->getSuccessor(suc)) {
-                addEdge(i,child,"control"+ to_string(suc));
-              }
-            }
-          }
-        }
-      }
+        if (isa<BranchInst>(&i)) 
+          addControl(i);
 
-      /***** Move redundent controle edges into flow edges ******/
-      for (auto predIt = pred_begin(&b), end = pred_end(&b); predIt != end; ++predIt) {
-        BasicBlock *pred = *predIt;
-        if (pred->getTerminator()) {
-          Value *control = dyn_cast<Value>(pred->getTerminator());
-          removeRedCtrEdge(*control,&b);
-          removeRedCtrEdge(*startNode,pred);
-        }
+      } //end BB for
+    } //end Fun for
+  } //end Mod for
 
-      }
-      removeRedCtrEdge(*startNode,&b);
+
+  for (auto v : starts) {
+    if ((*v).parents.size() == 0) {
+      getOrdering(*v,0);
     }
   }
-  
-  //Remove un-necessary branch statement edges
-  bool flag = true;
-  while(flag) {
-    flag = false;
-    for (auto n : node_map) {
-      if (isa<BranchInst>(n.first) && dyn_cast<BranchInst>(n.first)->isConditional()) {
-        //Node 'n' is an conditional branch instruction
-        for (auto child : n.second) {
-          if (isa<BranchInst>(child.first) && dyn_cast<BranchInst>(child.first)->isUnconditional()) {
-            //Node 'n' has a child, 'child', that is an unconditional branch. Merge.
-            for (auto childEdge : node_map.find(child.first)->second) {
-              addEdge(*n.first,*childEdge.first,child.second[0]);
-              delEdge(*n.first,*child.first);
-              flag = true;
-            }
-          }
 
-        }
-      } 
-    }
-  }
-  
-  
-  //Remove the unconditional branch instr
-  for (auto &f : m) {
-    for (auto &b : f) {
-      for (auto &i : b) {
-        if (isa<BranchInst>(&i) && dyn_cast<BranchInst>(&i)->isUnconditional()) {
-         node_map.erase(&i);
-        }
-      }
-    }
-  }
-  
   return false;
-}
+} //end runOnModule
 
 
 //Following 3 functions used for clustering instructions
@@ -257,7 +277,6 @@ print_clustH(string label, string color, bool header) {
 void
 print_clustNode(const Value &input) {
   if (isa<DbgInfoIntrinsic>(input)) return;
-//  if (isa<BranchInst>(&input) && dyn_cast<BranchInst>(&input)->isUnconditional()) return;
   outs() << &input << ";\n";
 }
 
@@ -272,66 +291,60 @@ clust_data(const Value &input) {
 //Prints out the graph in a graphviz friendly way
 void
 DependencyPass::print(raw_ostream &out, const Module *m) const {
-  bool MODULE = false;
-  bool FUNCTION = true;
-  bool BLOCKS = false;
-  bool DATAGRP = false;
 
+  //Print graphviz header
   out << "digraph {\n  node [shape=record];\n";
 
-  for (auto n : node_map) {
+  // Print all vertex's
+  for (auto v : vertex_map) {
     string name = "Unknown";
     string var = "";
-    if (isa<Instruction>(n.first)) {
-      Instruction *nInstr = dyn_cast<Instruction>(n.first);
+    if (isa<Instruction>(v.first)) {
+      Instruction *nInstr = dyn_cast<Instruction>(v.first);
       name = nInstr->getOpcodeName();
       var = nInstr->getName();
     } else {
-      name = n.first->getName();
+      name = v.first->getName();
     }
 
     if (name == "unreachable") {
       name = "Start";
-      if (n.second.size() == 0) continue; //Don't add empty start nodes
+      if (v.second.children.size() == 0) continue; //Don't add empty start nodes
     }
 
-    out << " " << n.first
-      << "[label=\"{" << name << ":" << var
-      << "}\"];\n";
+    //Print graphviz node
+    out << " " << v.first << "[label=\"{" << name << ":" << var << v.second.level << "}\"];\n";
   }
 
   string color = "black";
 
   // Print the edges between them
-  for (auto node : node_map) {  //Move through all source functions 
-    // node_map = unordered_map, node.first = from Instruction, node.second = unordered_map
-    for (auto target : node.second) { //Move through all target
-      //node.second = unordered_map, target.first = to Instruction, node.second = edge vector
-      for (auto edge : target.second) { ///Move through all edges between target
-        //target.second = vector<string>, edge = edge code between from and to
+  for (auto v : vertex_map) {  //Iterate through all vertex's 
+    for (auto child : v.second.children) { //Iterate over children
+      for (auto edge : child.second) { ///Iterate over edges
         if (edge == "control") {
-          color = "chocolate";
+          color = "black";
         } else if (edge == "control0") {
           color = "green";
         } else if (edge == "control1") {
           color = "red";
         } else if (edge == "data") {
-          continue;
-          color = "black";
+          color = "blue";
         } else if (edge == "test") {
           color = "yellow";
-        } else if (edge == "flow") {
-          color = "blue";
         } else {
-          color = "blue";
+          color = "pink";
         }
-        out << "  " <<  node.first
-          << " -> " << target.first << "[color=" << color << "];\n";
+        
+        //Print graphviz edge
+        if (CONTROL_ONLY && edge == "data") continue;
+        if (DATA_ONLY && (edge == "control" || edge == "control0" || edge == "control1")) continue;
+        out << "  " <<  v.first << " -> " << child.first << "[color=" << color << "];\n";
       }
     }
   }
 
-
+  //Do some clustering
   if (MODULE) print_clustH("Main Module","white",true);
   for (auto &f : *m) {
     if (FUNCTION) print_clustH(f.getName(),"lightgray",true);
@@ -351,7 +364,27 @@ DependencyPass::print(raw_ostream &out, const Module *m) const {
   }
   if (MODULE) print_clustH("module","white",false);
 
+  if (LEVELS) {
+    bool flag = true;
+    int curLevel = 0;
+    while (flag) {
+      flag = false;
+
+      print_clustH(to_string(curLevel),"green",true);
+      for (auto &v : vertex_order) {
+        if (v.second == curLevel) {
+          flag = true;
+          Value *vValue = (*v.first).val;
+          outs() << vValue << ";\n";
+        }
+      }
+      print_clustH(to_string(curLevel),"green",false);
+      curLevel++;
+    }
+  }
+  //Print graphviz footer
   out << "}\n";
 
 }
+
 
