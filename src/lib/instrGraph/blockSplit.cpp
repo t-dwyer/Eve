@@ -6,41 +6,79 @@ RegisterPass<blockSplitPass> Y("blockSplitter","splits all basic blocks into sin
 static IRBuilder<> Builder(getGlobalContext());
 
 
-void
-moveUp(Instruction &i, BasicBlock &b) {
 
 
+vector<Instruction*>
+findBlockUsers(Instruction &i, BasicBlock &b) {
+
+  vector<Instruction*> useList;
+  useList.push_back(&i);
+  
+  if (b.getTerminator() == &i) return useList;
+
+  for (auto *u : i.users()) {
+    Instruction *instr = dyn_cast<Instruction>(u);
+    if ((*instr).getParent() == &b) {
+      useList.push_back(instr);
+    }
+  } 
+  return useList;
+}
+
+BasicBlock*
+blockSplitPass::splitBlocksUp(BasicBlock &b, vector<Instruction*> workGroup) {
+  BasicBlock *newBB = SplitBlock(&b,&b.front(),this);
+  for (auto &i : workGroup) {
+    (*i).moveBefore(b.getTerminator());
+  }
+  return newBB;
 }
 
 bool
 blockSplitPass::runOnModule(Module &m) {
+  vector<BasicBlock*> bbList;
 
   for (auto &f : m) {
-    BasicBlock &b = f.front();
-    BasicBlock *newBB = SplitBlock(&b,&b.front(),this);
-    BasicBlock *temp = &(*newBB); 
-    Instruction *oldAddLoc = b.getTerminator();
-    Instruction *newAddLoc = (*newBB).getTerminator();
-  
-    int stopAt = 2;
-    for (auto &temp : *temp) {
-      //    Instruction *startLoc = &(*newBB).front();
-      Instruction *instr = dyn_cast<Instruction>(&temp);
-      for (auto *u : (*instr).users()) {
-        Instruction *cur = dyn_cast<Instruction>(u);
-        if ((*cur).getParent() == newBB || (*cur).getParent() == &b) {
-          (*cur).moveBefore(oldAddLoc);
-        }
-      }
-
-      oldAddLoc = (*newBB).getTerminator();
-      newBB = SplitBlock(&(*newBB),&(*newBB).front(),this);
-      if (stopAt == 0) break;
-      stopAt--;
+    for (auto &b : f) {
+      bbList.push_back(&b); 
     }
+  }
 
-  } 
-
+  for (auto &b : bbList) {
+    vector<Instruction*> workGroup = findBlockUsers((*b).front(),*b); 
+    BasicBlock* newBlock = nullptr;
+    if (workGroup.size() >= 1) {
+      newBlock = splitBlocksUp(*b,workGroup);
+    }
+    while (newBlock != NULL && (*newBlock).size() > 2) {
+      workGroup = findBlockUsers((*newBlock).front(),*newBlock); 
+      if (workGroup.size() >= 1) {
+        newBlock = splitBlocksUp(*newBlock,workGroup);
+      }
+    }
+  }
   return true;
 } //end runOnModule
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

@@ -1,4 +1,1 @@
-./run_generic++ 01-simple/01-simple.cpp 01-simple.pdf
-./run_generic++ 02-more/02-more.cpp 02-more.pdf
-./run_generic++ 03-thread/03-thread.cpp 03-thread.pdf
-./run_generic++ 04-mm1/04-mm1.cpp 03-mm1.pdf
+./run_generic++ 01-simple/01-simple.cpp workingPDF

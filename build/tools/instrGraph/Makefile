@@ -17,7 +17,7 @@ USEDLIBS = instrGraph.a
 
 CPPFLAGS += -std=c++11
 
-LINK_COMPONENTS = asmparser core bitreader irreader ipo analysis support
+LINK_COMPONENTS = asmparser core bitreader bitwriter irreader ipo analysis support
 
 #
 # Include Makefile.common so we know what to do.

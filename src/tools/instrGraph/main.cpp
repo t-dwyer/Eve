@@ -31,7 +31,16 @@ char DomGraphPrinter<T>::ID = 0;
 
 }
 
-
+static void
+saveModule(Module &m) {
+  string errorMsg;
+  raw_fd_ostream out("output.bc", errorMsg, sys::fs::F_None);
+  if (!errorMsg.empty()){
+    report_fatal_error("error saving llvm module to file \n"
+        + errorMsg);
+  }
+  WriteBitcodeToFile(&m, out);
+}
 
 int
 main (int argc, char **argv, const char **env) {
@@ -65,6 +74,7 @@ main (int argc, char **argv, const char **env) {
 
   pm.run(*module);
 
+  saveModule(*module);
   return 0;
 }
 

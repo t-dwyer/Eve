@@ -54,6 +54,9 @@
   /home/tdwyer/bin/llvm/include/llvm/ADT/None.h \
   /home/tdwyer/bin/llvm/include/llvm/Support/SMLoc.h \
   /home/tdwyer/bin/llvm/include/llvm/Support/raw_ostream.h \
+  /home/tdwyer/bin/llvm/include/llvm/Support/FileSystem.h \
+  /home/tdwyer/bin/llvm/include/llvm/ADT/IntrusiveRefCntPtr.h \
+  /home/tdwyer/bin/llvm/include/llvm/Support/TimeValue.h \
   /home/tdwyer/Dropbox/Life/4-SFU_PhD/Research/Eve/build/../src/include/instrGraph.h \
   /home/tdwyer/bin/llvm/include/llvm/Transforms/IPO.h \
   /home/tdwyer/bin/llvm/include/llvm/ADT/Statistic.h \
@@ -223,6 +226,12 @@
 /home/tdwyer/bin/llvm/include/llvm/Support/SMLoc.h:
 
 /home/tdwyer/bin/llvm/include/llvm/Support/raw_ostream.h:
+
+/home/tdwyer/bin/llvm/include/llvm/Support/FileSystem.h:
+
+/home/tdwyer/bin/llvm/include/llvm/ADT/IntrusiveRefCntPtr.h:
+
+/home/tdwyer/bin/llvm/include/llvm/Support/TimeValue.h:
 
 /home/tdwyer/Dropbox/Life/4-SFU_PhD/Research/Eve/build/../src/include/instrGraph.h:
 

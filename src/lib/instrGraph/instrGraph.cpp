@@ -8,7 +8,16 @@ struct Vertex {
   int level;
 };
 
+struct bbNode {
+  int name;
+  BasicBlock* block;
+  vector<Value*> contents;
+  unordered_map<BasicBlock*, unordered_set<string>> parents;
+  unordered_map<BasicBlock*, unordered_set<string>> children;
+};
+
 unordered_map<Value*,Vertex> vertex_map;
+unordered_map<BasicBlock*,bbNode> bbNode_map;
 
 //LLVM Related
 char DependencyPass::ID = 0;
@@ -257,6 +266,39 @@ DependencyPass::runOnModule(Module &m) {
     }
   }
 
+  for (auto &v : vertex_map) {
+    if (!isa<Instruction>(v.first)) continue;
+    Instruction *vInstr = dyn_cast<Instruction>(v.first);
+    BasicBlock *parentBlock = (*vInstr).getParent();    
+    if (bbNode_map.find(parentBlock) == bbNode_map.end()){
+      bbNode newNode;
+      newNode.block = parentBlock;
+      newNode.name = -1; 
+      bbNode_map[parentBlock] = newNode;
+    } 
+  }
+  for (auto &v : vertex_map) {
+    if (!isa<Instruction>(v.first)) continue;
+    Instruction *vInstr = dyn_cast<Instruction>(v.first);
+    BasicBlock *parentBlock = (*vInstr).getParent();    
+    bbNode_map[parentBlock].contents.push_back(v.first);
+    for (auto &child : v.second.children) {
+      Instruction* childInstr = dyn_cast<Instruction>(child.first);
+      bbNode_map[parentBlock].children[(*childInstr).getParent()] = child.second;
+    }
+/*    for (auto &parent : v.second.parents) {
+      Instruction* parentInstr = dyn_cast<Instruction>(parent.first);
+      bbNode_map[parentBlock].parents[(*parentInstr).getParent()] = parent.second;
+    }
+*/  }
+
+  int count = 0;
+  for (auto &f : m) {
+    for (auto &b : f) {     
+      bbNode_map[&b].name = count; count++;
+    }
+  }
+  
   return false;
 } //end runOnModule
 
@@ -294,7 +336,47 @@ void
 DependencyPass::print(raw_ostream &out, const Module *m) const {
 
   //Print graphviz header
-  out << "digraph {\n  node [shape=record];\n";
+
+
+  if (true) {
+  
+    out << "digraph {\n  node [shape=box3d];\n";
+    for (auto n : bbNode_map) {
+      
+      out << " " << n.first << "[label=\"{" << "Block #" << n.second.name <<  "}\"];\n";
+    }
+
+    string color = "black";
+    for (auto n : bbNode_map) {  //Iterate through all vertex's 
+      for (auto child : n.second.children) { //Iterate over children
+        for (auto edge : child.second) { ///Iterate over edges
+          if (edge == "control") {
+            color = "black";
+          } else if (edge == "control0") {
+            color = "green";
+          } else if (edge == "control1") {
+            color = "red";
+          } else if (edge == "data") {
+            color = "blue";
+          } else if (edge == "test") {
+            color = "yellow";
+          } else {
+            color = "pink";
+          }
+
+          //Print graphviz edge
+          //     if (CONTROL_ONLY && edge == "data") continue;
+          //     if (DATA_ONLY && (edge == "control" || edge == "control0" || edge == "control1")) continue;
+          out << "  " <<  n.first << " -> " << child.first << "[color=" << color << "];\n";
+        }
+      }
+    }
+
+    out << "node [shape=oval];\n";
+  } else {
+    out << "digraph {\n  node [shape=oval];\n";
+  }
+
 
   // Print all vertex's
   for (auto v : vertex_map) {
@@ -350,7 +432,7 @@ DependencyPass::print(raw_ostream &out, const Module *m) const {
   for (auto &f : *m) {
     if (FUNCTION) print_clustH(f.getName(),"lightgray",true);
     for (auto &b : f) {
-      if (BLOCKS) print_clustH("BB","lightblue",true);
+      if (BLOCKS) print_clustH("Block #" + to_string(bbNode_map[const_cast<BasicBlock*>(&b)].name),"lightblue",true);
       for (auto &i : b) {
         if (DATAGRP && !strcmp(i.getOpcodeName(),"alloca") ) {
           print_clustH(i.getName(),"lightblue",true);
@@ -359,7 +441,7 @@ DependencyPass::print(raw_ostream &out, const Module *m) const {
         }
         if (BLOCKS | FUNCTION | MODULE) print_clustNode(*dyn_cast<Value>(&i));
       }
-      if (BLOCKS) print_clustH("BB","lightblue",false);
+      if (BLOCKS) print_clustH("Block #" + to_string(bbNode_map[const_cast<BasicBlock*>(&b)].name),"lightblue",false);
     }
     if (FUNCTION) print_clustH(f.getName(),"lightgray",false);
   }

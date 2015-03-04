@@ -41,6 +41,7 @@ namespace blockSplit {
     }
 
     virtual bool runOnModule(llvm::Module &m) override;
+    virtual llvm::BasicBlock* splitBlocksUp(llvm::BasicBlock &b,std::vector<llvm::Instruction*>);
   };
 }
 
