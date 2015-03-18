@@ -2,41 +2,66 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux-gnu"
 
-@.str = private unnamed_addr constant [41 x i8] c"WinWinWinWinWinWinWinWinWinWinWinWin %d\0A\00", align 1
+%"class.std::ios_base::Init" = type { i8 }
 
-; Function Attrs: uwtable
-define i32 @main(i32 %argc, i8** %argv) #0 {
-  %1 = alloca i32, align 4
-  %2 = alloca i32, align 4
-  %3 = alloca i8**, align 8
-  %x = alloca i32, align 4
-  store i32 0, i32* %1
-  store i32 %argc, i32* %2, align 4
-  store i8** %argv, i8*** %3, align 8
-  store i32 1, i32* %x, align 4
-  %4 = load i32* %x, align 4
-  %5 = icmp eq i32 %4, 4
-  br i1 %5, label %6, label %7
+@_ZStL8__ioinit = internal global %"class.std::ios_base::Init" zeroinitializer, align 1
+@__dso_handle = external global i8
+@llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @_GLOBAL__sub_I_02_more.cpp, i8* null }]
 
-; <label>:6                                       ; preds = %0
-  store i32 0, i32* %1
-  br label %10
-
-; <label>:7                                       ; preds = %0
-  %8 = load i32* %x, align 4
-  %9 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([41 x i8]* @.str, i32 0, i32 0), i32 %8)
-  store i32 0, i32* %1
-  br label %10
-
-; <label>:10                                      ; preds = %7, %6
-  %11 = load i32* %1
-  ret i32 %11
+define internal void @__cxx_global_var_init() section ".text.startup" {
+  call void @_ZNSt8ios_base4InitC1Ev(%"class.std::ios_base::Init"* @_ZStL8__ioinit)
+  %1 = call i32 @__cxa_atexit(void (i8*)* bitcast (void (%"class.std::ios_base::Init"*)* @_ZNSt8ios_base4InitD1Ev to void (i8*)*), i8* getelementptr inbounds (%"class.std::ios_base::Init"* @_ZStL8__ioinit, i32 0, i32 0), i8* @__dso_handle) #1
+  ret void
 }
 
-declare i32 @printf(i8*, ...) #1
+declare void @_ZNSt8ios_base4InitC1Ev(%"class.std::ios_base::Init"*) #0
 
-attributes #0 = { uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+declare void @_ZNSt8ios_base4InitD1Ev(%"class.std::ios_base::Init"*) #0
+
+; Function Attrs: nounwind
+declare i32 @__cxa_atexit(void (i8*)*, i8*, i8*) #1
+
+; Function Attrs: nounwind uwtable
+define i32 @main() #2 {
+  %1 = alloca i32, align 4
+  %tmp = alloca i32, align 4
+  %j = alloca i32, align 4
+  store i32 0, i32* %1
+  store i32 0, i32* %tmp, align 4
+  store i32 0, i32* %j, align 4
+  br label %2
+
+; <label>:2                                       ; preds = %9, %0
+  %3 = load i32* %j, align 4
+  %4 = icmp slt i32 %3, 5
+  br i1 %4, label %5, label %12
+
+; <label>:5                                       ; preds = %2
+  %6 = load i32* %tmp, align 4
+  %7 = mul nsw i32 %6, 2
+  %8 = add nsw i32 %7, 3
+  store i32 %8, i32* %tmp, align 4
+  br label %9
+
+; <label>:9                                       ; preds = %5
+  %10 = load i32* %j, align 4
+  %11 = add nsw i32 %10, 1
+  store i32 %11, i32* %j, align 4
+  br label %2
+
+; <label>:12                                      ; preds = %2
+  %13 = load i32* %tmp, align 4
+  ret i32 %13
+}
+
+define internal void @_GLOBAL__sub_I_02_more.cpp() section ".text.startup" {
+  call void @__cxx_global_var_init()
+  ret void
+}
+
+attributes #0 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { nounwind }
+attributes #2 = { nounwind uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !llvm.ident = !{!0}
 

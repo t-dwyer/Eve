@@ -60,7 +60,8 @@ blockSplitPass::runOnModule(Module &m) {
     BasicBlock* parentBlock = b ; //The parent block for internal blocks
     bbNode parentNode;
     parentNode.block = parentBlock; //Add original block as parent block
-    bool split = !(workGroup.size() == (*parentBlock).size()+1);
+    bool split = ((*parentBlock).size() > 2 && workGroup.size() != (*parentBlock).size());
+    //Parent block as more than 1 instruction + branch, and has more than one user (workgroup has same size as parent)
     if (split) { //This block has instructions
       newBlock = SplitBlock(b,&(*b).front(),this); //Create an empty parent block (parent = b)
       unordered_set<string> edge;  edge.insert("control");
@@ -85,11 +86,17 @@ blockSplitPass::runOnModule(Module &m) {
       }
     }
 
-//    vector<BasicBlock*> childList;
     //Create the internal blocks (one user per block)
-    while (split) {
+    while ( split) {
       workGroup = findBlockUsers((*newBlock).front(),*newBlock); //Get the new user for this block
-      BasicBlock *localBlock = splitBlocksUp(*newBlock,workGroup); //Keep one user from the block, and create a new one
+      BasicBlock *localBlock;
+      bool breakLater = false;
+      if (workGroup.size() >= (*newBlock).size() || (*newBlock).size() <= 2) {
+        //New block has only 1 user (same size as block) or block has only 1 instruction + branch, or just branch
+        breakLater = true; 
+      } else {
+        localBlock = splitBlocksUp(*newBlock,workGroup); //Keep one user from the block, and create a new one
+      }
 
       unordered_set<string> edge;  edge.insert("control");
       parentNode.children[newBlock] = edge;
@@ -105,12 +112,9 @@ blockSplitPass::runOnModule(Module &m) {
       unordered_set<string> edge3;  edge3.insert("control");
       endNode.parents[newBlock] = edge3;
 
-//      childList.insert(newBlock);
-
       bbNode_map[childNode.block] = childNode;
-
-      if ((*newBlock).size() > 2) newBlock = localBlock;
-      else break;
+      if (breakLater) break;
+      newBlock = localBlock;
     }
 
     if (!split) {

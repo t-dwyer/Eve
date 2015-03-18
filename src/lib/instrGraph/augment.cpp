@@ -52,6 +52,16 @@ AugmentPass::runOnModule(Module &module) {
   appendToGlobalDtors(module, llvm::cast<Function>(writeOut), 0); 
 //  auto *recBlock  = module.getOrInsertFunction("Augment_recBlock", intFunTy);
 
+
+  for (auto b : bbNode_map) {
+    if ((*b.first).size() == 0) continue;
+    outs() << (*b.first) << "\n";
+//    IRBuilder<> dbBuilder((*b.first).getTerminator());
+//    dbBuilder.CreateCall(doNOP,params);
+
+  }
+
+  /*
   BasicBlock *curBlock;
   for (auto &f : module) {
     if (f.isDeclaration()) continue;
@@ -85,7 +95,6 @@ AugmentPass::runOnModule(Module &module) {
     curBlock = falseTopBlock;
       
         
-/*MAIN LOOP *********************************************************/
 
     //Set up START/UNLOCK messages (main loop, and try lock checks)
     for (auto &b : bbNode_map) {
@@ -152,11 +161,7 @@ AugmentPass::runOnModule(Module &module) {
     TerminatorInst *lastInst = (*curBlock).getTerminator(); //Terminator of our last 'than' block
     (*lastInst).setSuccessor(0,topBlock); //Set its terminator to our first block
 
-/*END MAIN LOOP *********************************************************/
 
-
-
-/********* DATA BLOCK MODS ************/
     for (auto &b : bbNode_map) {
       if (b.first == topBlock) continue; //Don't do modifications on first block, it is considered a starting data block
       Instruction *insertPoint = (*b.first).getTerminator();
@@ -183,6 +188,7 @@ AugmentPass::runOnModule(Module &module) {
       }
     }
   }
+  */
   return true;
 }
 
