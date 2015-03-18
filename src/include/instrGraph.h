@@ -50,3 +50,30 @@ using namespace instrGraph;
 using namespace llvm;
 using namespace std;
 
+
+//Datastructure related
+struct Vertex {
+  Value* val;
+  unordered_map<Value*, unordered_set<string>> parents;
+  unordered_map<Value*, unordered_set<string>> children;
+  int level;
+
+  BasicBlock* parentBlock;
+};
+
+struct bbNode {
+  int name;
+  BasicBlock* block;
+  vector<Value*> contents;
+  unordered_map<BasicBlock*, unordered_set<string>> parents;
+  unordered_map<BasicBlock*, unordered_set<string>> children;
+  BasicBlock* signalBlock;
+  BasicBlock* depBlock;
+};
+
+struct dataNode {
+	vector<Value*> contents;
+};
+
+
+extern unordered_map<BasicBlock*,bbNode> bbNode_map;

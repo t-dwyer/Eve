@@ -1,6 +1,7 @@
 #include "main.h"
 #include "instrGraph.h"
 #include "blockSplit.h"
+#include "augment.h"
 
 namespace {
   cl::opt<string>
@@ -71,6 +72,8 @@ main (int argc, char **argv, const char **env) {
   pm.add(new blockSplit::blockSplitPass);
   pm.add(new instrGraph::DependencyPass);
   pm.add(new DomGraphPrinter<instrGraph::DependencyPass>(outs()));
+  pm.add(new augment::AugmentPass);
+
 
   pm.run(*module);
 

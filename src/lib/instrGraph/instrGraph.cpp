@@ -1,29 +1,14 @@
-#include "instrGraph.h"
-
-//Datastructure related
-struct Vertex {
-  Value* val;
-  unordered_map<Value*, unordered_set<string>> parents;
-  unordered_map<Value*, unordered_set<string>> children;
-  int level;
-};
-
-struct bbNode {
-  int name;
-  BasicBlock* block;
-  vector<Value*> contents;
-  unordered_map<BasicBlock*, unordered_set<string>> parents;
-  unordered_map<BasicBlock*, unordered_set<string>> children;
-};
-
-unordered_map<Value*,Vertex> vertex_map;
-unordered_map<BasicBlock*,bbNode> bbNode_map;
-
+#include "../../include/instrGraph.h"
+#include "../../include/blockSplit.h"
 //LLVM Related
 char DependencyPass::ID = 0;
 RegisterPass<DependencyPass> X("instrDepGraph","construct an instruction dependency graph");
 static IRBuilder<> Builder(getGlobalContext());
 
+unordered_map<Value*,Vertex> vertex_map;
+unordered_map<BasicBlock*,bbNode> bbNode_map;
+unordered_map<Vertex*, int> vertex_order;
+unordered_map<Value*,dataNode> dataNode_map;
 
 //CLustering related
 bool MODULE = false;
@@ -32,13 +17,10 @@ bool BLOCKS = true;
 bool DATAGRP = false;
 bool LEVELS = false;
 int clustNum = 0;
-
+int blockName = 0;
 //GraphViz Edge related
 bool CONTROL_ONLY = false;
 bool DATA_ONLY = false;
-
-unordered_map<Vertex*, int> vertex_order;
-
 
 Vertex*
 addNode(Value &i) {
@@ -49,6 +31,7 @@ addNode(Value &i) {
   input.val = &i;
   input.parents = parents;
   input.children = children;
+  if (isa<Instruction>(&i)) {input.parentBlock = (*dyn_cast<Instruction>(&i)).getParent(); }
   
   vertex_map[input.val] = input;
 
@@ -108,6 +91,9 @@ addParent(Value &from, Value &parent, string type) {
   } else { //Child exists, add new edge type
     (*curChildren)[&from].insert(type);  
   }
+
+  //Add 'parent' as a parent of the 'from' node in the dataNode data structure
+
 }
 
 void
@@ -178,11 +164,11 @@ traceBack(Value &input) {
     //If it's a load instruction, we need to find ALL possible store instructions
     if (isa<LoadInst>(instr)) {
       //Search through all predesessor BBs until find store
-//      unordered_set<BasicBlock*> history;
-//      findStoreInstr(input,*parentBB,history);
+      unordered_set<BasicBlock*> history;
+      findStoreInstr(input,*parentBB,history);
       for (auto predIt = pred_begin(parentBB), end = pred_end(parentBB); predIt != end; ++predIt) {
-//        BasicBlock *pred = *predIt;
-//        findStoreInstr(input,*pred,history);
+        BasicBlock *pred = *predIt;
+        findStoreInstr(input,*pred,history);
       }
     }
 
@@ -235,6 +221,7 @@ DependencyPass::runOnModule(Module &m) {
   unordered_set<Vertex*> starts;
 
   for (auto &f : m) {
+    if (f.getName() != "main") continue;
     Value *startNode = Builder.CreateUnreachable();
     Vertex *startVertex = addNode(*startNode);
     starts.insert(startVertex);
@@ -259,41 +246,9 @@ DependencyPass::runOnModule(Module &m) {
     } //end Fun for
   } //end Mod for
 
-
-  for (auto v : starts) {
-    if ((*v).parents.size() == 0) {
-      getOrdering(*v,0);
-    }
-  }
-
-  for (auto &v : vertex_map) {
-    if (!isa<Instruction>(v.first)) continue;
-    Instruction *vInstr = dyn_cast<Instruction>(v.first);
-    BasicBlock *parentBlock = (*vInstr).getParent();    
-    if (bbNode_map.find(parentBlock) == bbNode_map.end()){
-      bbNode newNode;
-      newNode.block = parentBlock;
-      newNode.name = -1; 
-      bbNode_map[parentBlock] = newNode;
-    } 
-  }
-  for (auto &v : vertex_map) {
-    if (!isa<Instruction>(v.first)) continue;
-    Instruction *vInstr = dyn_cast<Instruction>(v.first);
-    BasicBlock *parentBlock = (*vInstr).getParent();    
-    bbNode_map[parentBlock].contents.push_back(v.first);
-    for (auto &child : v.second.children) {
-      Instruction* childInstr = dyn_cast<Instruction>(child.first);
-      bbNode_map[parentBlock].children[(*childInstr).getParent()] = child.second;
-    }
-/*    for (auto &parent : v.second.parents) {
-      Instruction* parentInstr = dyn_cast<Instruction>(parent.first);
-      bbNode_map[parentBlock].parents[(*parentInstr).getParent()] = parent.second;
-    }
-*/  }
-
   int count = 0;
   for (auto &f : m) {
+    if (f.getName() != "main") continue;
     for (auto &b : f) {     
       bbNode_map[&b].name = count; count++;
     }
@@ -305,9 +260,9 @@ DependencyPass::runOnModule(Module &m) {
 
 //Following 3 functions used for clustering instructions
 void 
-print_clustH(string label, string color, bool header) {
+print_clustH(string label, string color, bool header, BasicBlock &b) {
   if (header) {
-    outs() << "subgraph cluster" << clustNum << " {\n" 
+    outs() << "subgraph cluster" << &b << " {\n" 
       << "style=filled;\n" 
       << "color=" << color << ";\n"
       << "label=\"" << label << "\";\n";
@@ -336,19 +291,172 @@ void
 DependencyPass::print(raw_ostream &out, const Module *m) const {
 
   //Print graphviz header
+	if (true) {
+		out << "digraph {\n  compound=true; node [shape=box3d];\n";
+		for (auto dBlock : bbNode_map) {
+      if (dBlock.second.contents.size() > 0) {
+        out << " " << dBlock.first << "[label=\"{" << dBlock.second.name << "}\"];\n";
+        blockName++;
+      }
+		}
 
-
-  if (true) {
-  
-    out << "digraph {\n  node [shape=box3d];\n";
+    //Add Control edges (between data blocks)
     for (auto n : bbNode_map) {
-      
-      out << " " << n.first << "[label=\"{" << "Block #" << n.second.name <<  "}\"];\n";
+      for (auto child : n.second.children) { 
+        for (auto edge : child.second) {
+          string color = "black";
+          if (edge == "control") { color = "green";
+          } else if (edge == "control0") { color = "green";
+          } else if (edge == "control1") { color = "red";
+          } else if (edge == "data") { color = "blue";
+          } else if (edge == "test") { color = "yellow";
+          } else { color = "pink"; }
+          out << "  " << n.first << " -> " << child.first << "[color=" << color << "];\n";
+        }
+      }
+    }
+
+    //Add Data edges (between instructions) 
+    for (auto v : vertex_map) {  
+      for (auto child : v.second.children) { 
+        for (auto edge : child.second) { 
+          string color = "black";
+          if (edge == "control") {color = "black";} 
+          else if (edge == "control0") { color = "green"; } 
+          else if (edge == "control1") { color = "red";}
+          else if (edge == "data") { color = "blue"; } 
+          else if (edge == "test") {color = "yellow"; } 
+          else { color = "pink";}
+          
+          if (v.second.parentBlock == vertex_map[child.first].parentBlock) continue;
+          if ((edge == "control" || edge == "control0" || edge == "control1")) continue;
+
+          /*CHECK THIS, not sure why it is taking so many checks, works but something is up */
+          if (v.second.parentBlock == NULL ||  vertex_map[child.first].parentBlock == NULL) continue;
+          if (bbNode_map.find(v.second.parentBlock) == bbNode_map.end() ) continue;
+          if (bbNode_map.find(vertex_map[child.first].parentBlock)  == bbNode_map.end()) continue;
+
+
+          BasicBlock *parentNode = bbNode_map[v.second.parentBlock].block;
+          BasicBlock *childNode = bbNode_map[vertex_map[child.first].parentBlock].block;
+          out << "  " <<  parentNode << " -> " << childNode << "[color=" << color << "];\n";
+        }
+      }
+    }
+
+//    out << "}\n";
+//  } 
+
+//	if (true) {
+//		out << "digraph {\n  compound=true; node [shape=box];\n";
+    out << "node [shape=box];\n";
+		for (auto dBlock : bbNode_map) {
+      string clustLabel = "Block #" + to_string(bbNode_map[const_cast<BasicBlock*>(dBlock.first)].name);
+      print_clustH(clustLabel,"lightblue",true, *dBlock.first);
+
+      for (auto instr : dBlock.second.contents) {
+        string name = "Unknown";
+        string var = "";
+        if (isa<Instruction>(instr)) {
+          Instruction *nInstr = dyn_cast<Instruction>(instr);
+          name = nInstr->getOpcodeName();
+          var = nInstr->getName();
+        } else {
+           name = instr->getName();
+        }
+        if (name == "unreachable") name = "Start";
+        out << " " << instr << "[label=\"{" << name << ":" << var << "}\"];\n";
+      }
+
+      print_clustH(clustLabel,"lightblue",false, *dBlock.first);
+		}
+
+    //Add Control edges (between data blocks)
+    for (auto n : bbNode_map) {
+      for (auto child : n.second.children) { 
+        for (auto edge : child.second) {
+          string color = "black";
+          if (edge == "control") { color = "green";
+          } else if (edge == "control0") { color = "green";
+          } else if (edge == "control1") { color = "red";
+          } else if (edge == "data") { color = "blue";
+          } else if (edge == "test") { color = "yellow";
+          } else { color = "pink"; }
+          out << "  " << (*n.first).getTerminator() << " -> " << &(*child.first).front() <<
+            "[ltail=cluster" << n.first << " lhead=cluster" << child.first << "; " << 
+            "color=" << color << "];\n";
+        }
+      }
+
+
+      string color = "black";
+      bool flag = true;
+      Instruction *instr;
+      for (Instruction &i : *n.first) {
+        if (flag) { instr = &i; flag = false; }
+        else {
+          out << "  " << instr << " -> " << &i << "[color=" << color << "];\n";
+          instr = &i;
+        }
+      }
+    }
+
+    //Add Data edges (between instructions) 
+    for (auto v : vertex_map) {  
+      for (auto child : v.second.children) { 
+        for (auto edge : child.second) { 
+          string color = "black";
+          if (edge == "control") {
+            color = "black";
+          } else if (edge == "control0") {
+            color = "green";
+          } else if (edge == "control1") {
+            color = "red";
+          } else if (edge == "data") {
+            color = "blue";
+          } else if (edge == "test") {
+            color = "yellow";
+          } else {
+            color = "pink";
+          }
+          
+          if (v.second.parentBlock == vertex_map[child.first].parentBlock) continue;
+          if ((edge == "control" || edge == "control0" || edge == "control1")) continue;
+          out << "  " <<  v.first << " -> " << child.first << "[color=" << color << "];\n";
+        }
+      }
+    }
+
+    out << "}\n";
+  } 
+
+  if (false) {
+    // Print all vertex's
+    for (auto v : vertex_map) {
+      string name = "Unknown";
+      string var = "";
+      if (isa<Instruction>(v.first)) {
+        Instruction *nInstr = dyn_cast<Instruction>(v.first);
+        name = nInstr->getOpcodeName();
+        var = nInstr->getName();
+      } else {
+        name = v.first->getName();
+      }
+
+      if (name == "unreachable") {
+        name = "Start";
+        if (v.second.children.size() == 0) continue; //Don't add empty start nodes
+      }
+
+      //Print graphviz node, removed v.second.level
+      out << " " << v.first << "[label=\"{" << name << ":" << var << "}\"];\n";
     }
 
     string color = "black";
-    for (auto n : bbNode_map) {  //Iterate through all vertex's 
-      for (auto child : n.second.children) { //Iterate over children
+
+    // Print the edges between them
+    for (auto v : vertex_map) {  //Iterate through all vertex's 
+      for (auto child : v.second.children) { //Iterate over children
         for (auto edge : child.second) { ///Iterate over edges
           if (edge == "control") {
             color = "black";
@@ -365,109 +473,55 @@ DependencyPass::print(raw_ostream &out, const Module *m) const {
           }
 
           //Print graphviz edge
-          //     if (CONTROL_ONLY && edge == "data") continue;
-          //     if (DATA_ONLY && (edge == "control" || edge == "control0" || edge == "control1")) continue;
-          out << "  " <<  n.first << " -> " << child.first << "[color=" << color << "];\n";
+          if (CONTROL_ONLY && edge == "data") continue;
+          if (DATA_ONLY && (edge == "control" || edge == "control0" || edge == "control1")) continue;
+          out << "  " <<  v.first << " -> " << child.first << "[color=" << color << "];\n";
         }
       }
     }
-
-    out << "node [shape=oval];\n";
-  } else {
-    out << "digraph {\n  node [shape=oval];\n";
-  }
-
-
-  // Print all vertex's
-  for (auto v : vertex_map) {
-    string name = "Unknown";
-    string var = "";
-    if (isa<Instruction>(v.first)) {
-      Instruction *nInstr = dyn_cast<Instruction>(v.first);
-      name = nInstr->getOpcodeName();
-      var = nInstr->getName();
-    } else {
-      name = v.first->getName();
-    }
-
-    if (name == "unreachable") {
-      name = "Start";
-      if (v.second.children.size() == 0) continue; //Don't add empty start nodes
-    }
-
-    //Print graphviz node, removed v.second.level
-    out << " " << v.first << "[label=\"{" << name << ":" << var << "}\"];\n";
-  }
-
-  string color = "black";
-
-  // Print the edges between them
-  for (auto v : vertex_map) {  //Iterate through all vertex's 
-    for (auto child : v.second.children) { //Iterate over children
-      for (auto edge : child.second) { ///Iterate over edges
-        if (edge == "control") {
-          color = "black";
-        } else if (edge == "control0") {
-          color = "green";
-        } else if (edge == "control1") {
-          color = "red";
-        } else if (edge == "data") {
-          color = "blue";
-        } else if (edge == "test") {
-          color = "yellow";
-        } else {
-          color = "pink";
+/*
+    //Do some clustering
+    if (MODULE) print_clustH("Main Module","white",true);
+    for (auto &f : *m) {
+      if (FUNCTION) print_clustH(f.getName(),"lightgray",true);
+      for (auto &b : f) {
+        if (BLOCKS) print_clustH("Block #" + to_string(bbNode_map[const_cast<BasicBlock*>(&b)].name),"lightblue",true);
+        for (auto &i : b) {
+          if (DATAGRP && !strcmp(i.getOpcodeName(),"alloca") ) {
+            print_clustH(i.getName(),"lightblue",true);
+            clust_data(*dyn_cast<Value>(&i));
+            print_clustH(i.getName(),"lightblue",false);
+          }
+          if (BLOCKS | FUNCTION | MODULE) print_clustNode(*dyn_cast<Value>(&i));
         }
-        
-        //Print graphviz edge
-        if (CONTROL_ONLY && edge == "data") continue;
-        if (DATA_ONLY && (edge == "control" || edge == "control0" || edge == "control1")) continue;
-        out << "  " <<  v.first << " -> " << child.first << "[color=" << color << "];\n";
+        if (BLOCKS) print_clustH("Block #" + to_string(bbNode_map[const_cast<BasicBlock*>(&b)].name),"lightblue",false);
+      }
+      if (FUNCTION) print_clustH(f.getName(),"lightgray",false);
+    }
+    if (MODULE) print_clustH("module","white",false);
+
+    if (LEVELS) {
+      bool flag = true;
+      int curLevel = 0;
+      while (flag) {
+        flag = false;
+
+        print_clustH(to_string(curLevel),"green",true);
+        for (auto &v : vertex_order) {
+          if (v.second == curLevel) {
+            flag = true;
+            Value *vValue = (*v.first).val;
+            outs() << vValue << ";\n";
+          }
+        }
+        print_clustH(to_string(curLevel),"green",false);
+        curLevel++;
       }
     }
+    //Print graphviz footer
+    out << "}\n";
+    */
   }
-
-  //Do some clustering
-  if (MODULE) print_clustH("Main Module","white",true);
-  for (auto &f : *m) {
-    if (FUNCTION) print_clustH(f.getName(),"lightgray",true);
-    for (auto &b : f) {
-      if (BLOCKS) print_clustH("Block #" + to_string(bbNode_map[const_cast<BasicBlock*>(&b)].name),"lightblue",true);
-      for (auto &i : b) {
-        if (DATAGRP && !strcmp(i.getOpcodeName(),"alloca") ) {
-          print_clustH(i.getName(),"lightblue",true);
-          clust_data(*dyn_cast<Value>(&i));
-          print_clustH(i.getName(),"lightblue",false);
-        }
-        if (BLOCKS | FUNCTION | MODULE) print_clustNode(*dyn_cast<Value>(&i));
-      }
-      if (BLOCKS) print_clustH("Block #" + to_string(bbNode_map[const_cast<BasicBlock*>(&b)].name),"lightblue",false);
-    }
-    if (FUNCTION) print_clustH(f.getName(),"lightgray",false);
-  }
-  if (MODULE) print_clustH("module","white",false);
-
-  if (LEVELS) {
-    bool flag = true;
-    int curLevel = 0;
-    while (flag) {
-      flag = false;
-
-      print_clustH(to_string(curLevel),"green",true);
-      for (auto &v : vertex_order) {
-        if (v.second == curLevel) {
-          flag = true;
-          Value *vValue = (*v.first).val;
-          outs() << vValue << ";\n";
-        }
-      }
-      print_clustH(to_string(curLevel),"green",false);
-      curLevel++;
-    }
-  }
-  //Print graphviz footer
-  out << "}\n";
-
 }
 
 

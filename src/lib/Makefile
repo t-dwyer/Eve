@@ -8,6 +8,6 @@ LEVEL=..
 #
 # List all of the subdirectories that we will compile.
 #
-DIRS=instrGraph
+DIRS=instrGraph augment-rt
 
 include $(LEVEL)/Makefile.common

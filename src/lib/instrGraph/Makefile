@@ -8,7 +8,7 @@ LEVEL=../..
 #
 # Give the name of a library.
 #
-LIBRARYNAME=instrGraph
+LIBRARYNAME=instrGraph 
 
 CPPFLAGS += -std=c++11
 
