@@ -1,0 +1,100 @@
+Block 0 has been sent a SIG PRIME
+Instrumentation initialized
+Number of blocks found : 20
+Block 5 has been sent a SIGNAL, status was 0 is now 1
+Block 4 has been sent a SIGNAL, status was 0 is now 1
+Block 3 has been sent a SIGNAL, status was 0 is now 1
+Block 2 has been sent a SIGNAL, status was 0 is now 1
+Block 1 has been sent a SIGNAL, status was 0 is now 1
+Signal Check: Block 16 tried, state was 0
+Signal Check: Block 19 tried, state was 0
+Signal Check: Block 12 tried, state was 0
+Signal Check: Block 15 tried, state was 0
+Signal Check: Block 18 tried, state was 0
+Signal Check: Block 14 tried, state was 0
+Signal Check: Block 13 tried, state was 0
+Signal Check: Block 2 tried, state was 1
+ - Hit, setting signal to : 0 
+Dependency check: Waiting on signal 0
+Signal Check: Block 3 tried, state was 1
+ - Hit, setting signal to : 0 
+Dependency check: Waiting on signal 0
+Signal Check: Block 4 tried, state was 1
+ - Hit, setting signal to : 0 
+Dependency check: Waiting on signal 0
+Signal Check: Block 10 tried, state was 0
+Signal Check: Block 5 tried, state was 1
+ - Hit, setting signal to : 0 
+Dependency check: Waiting on signal 0
+Signal Check: Block 1 tried, state was 1
+ - Hit, setting signal to : 0 
+Dependency check: Waiting on signal 0
+Signal Check: Block 7 tried, state was 0
+Signal Check: Block 8 tried, state was 0
+Signal Check: Block 17 tried, state was 0
+Signal Check: Block 9 tried, state was 0
+Signal Check: Block 0 tried, state was 1
+ - Hit, setting signal to : 0 
+Block 0 has been sent a SIG PRIME
+Block 5 has been sent a SIGNAL, status was 0 is now 1
+Block 4 has been sent a SIGNAL, status was 0 is now 1
+Block 3 has been sent a SIGNAL, status was 0 is now 1
+Block 2 has been sent a SIGNAL, status was 0 is now 1
+Block 1 has been sent a SIGNAL, status was 0 is now 1
+Signal Check: Block 16 tried, state was 0
+Signal Check: Block 19 tried, state was 0
+Signal Check: Block 12 tried, state was 0
+Signal Check: Block 15 tried, state was 0
+Signal Check: Block 18 tried, state was 0
+Signal Check: Block 14 tried, state was 0
+Signal Check: Block 13 tried, state was 0
+Signal Check: Block 2 tried, state was 1
+ - Hit, setting signal to : 0 
+Dependency check: Waiting on signal 0
+Block 2 has been sent a SIG PRIME
+Block 7 has been sent a SIGNAL, status was 0 is now 1
+Signal Check: Block 16 tried, state was 0
+Signal Check: Block 19 tried, state was 0
+Signal Check: Block 12 tried, state was 0
+Signal Check: Block 15 tried, state was 0
+Signal Check: Block 18 tried, state was 0
+Signal Check: Block 14 tried, state was 0
+Signal Check: Block 13 tried, state was 0
+Signal Check: Block 2 tried, state was 0
+Signal Check: Block 3 tried, state was 1
+ - Hit, setting signal to : 0 
+Dependency check: Waiting on signal 0
+Block 3 has been sent a SIG PRIME
+Block 7 has been sent a SIGNAL, status was 1 is now 1
+Signal Check: Block 16 tried, state was 0
+Signal Check: Block 19 tried, state was 0
+Signal Check: Block 12 tried, state was 0
+Signal Check: Block 15 tried, state was 0
+Signal Check: Block 18 tried, state was 0
+Signal Check: Block 14 tried, state was 0
+Signal Check: Block 13 tried, state was 0
+Signal Check: Block 2 tried, state was 0
+Signal Check: Block 3 tried, state was 0
+Signal Check: Block 4 tried, state was 1
+ - Hit, setting signal to : 0 
+Dependency check: Waiting on signal 0
+Block 4 has been sent a SIG PRIME
+Block 7 has been sent a SIGNAL, status was 1 is now 1
+Signal Check: Block 16 tried, state was 0
+Signal Check: Block 19 tried, state was 0
+Signal Check: Block 12 tried, state was 0
+Signal Check: Block 15 tried, state was 0
+Signal Check: Block 18 tried, state was 0
+Signal Check: Block 14 tried, state was 0
+Signal Check: Block 13 tried, state was 0
+Signal Check: Block 2 tried, state was 0
+Signal Check: Block 3 tried, state was 0
+Signal Check: Block 4 tried, state was 0
+Signal Check: Block 10 tried, state was 0
+Signal Check: Block 5 tried, state was 1
+ - Hit, setting signal to : 0 
+Dependency check: Waiting on signal 0
+Block 7 has been sent a SIG PRIME
+Block 8 has been sent a SIG PRIME
+Block 9 has been sent a SIGNAL, status was 0 is now 1
+Signal Check: Block

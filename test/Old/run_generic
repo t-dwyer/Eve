@@ -1,0 +1,13 @@
+clear
+clang -O0 -g -c -emit-llvm $1.c -o $1.bc
+echo "clang .c to .bc complete"
+llvm-dis $1.bc -o $1.ll
+echo "llvm-dis .bc to .ll complete"
+~/CMPT886/callgrapher/build/Debug+Asserts/bin/callgrapher ~/CMPT886/test/instrGraph_tests/$1.ll > output.gv
+echo "Callgrapher complete"
+sed 's/0x/x/g' output.gv > output_2.gv
+mv output_2.gv output.gv
+dot -Tps output.gv -o output.ps
+echo "Graph created"
+scp output.ps 24.87.92.19:/home/tdwyer/output.ps
+head output.gv
