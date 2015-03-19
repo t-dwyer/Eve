@@ -1,100 +1,63 @@
-Block 0 has been sent a SIG PRIME
 Instrumentation initialized
-Number of blocks found : 20
-Block 5 has been sent a SIGNAL, status was 0 is now 1
-Block 4 has been sent a SIGNAL, status was 0 is now 1
-Block 3 has been sent a SIGNAL, status was 0 is now 1
-Block 2 has been sent a SIGNAL, status was 0 is now 1
-Block 1 has been sent a SIGNAL, status was 0 is now 1
-Signal Check: Block 16 tried, state was 0
-Signal Check: Block 19 tried, state was 0
-Signal Check: Block 12 tried, state was 0
-Signal Check: Block 15 tried, state was 0
-Signal Check: Block 18 tried, state was 0
-Signal Check: Block 14 tried, state was 0
-Signal Check: Block 13 tried, state was 0
-Signal Check: Block 2 tried, state was 1
- - Hit, setting signal to : 0 
-Dependency check: Waiting on signal 0
-Signal Check: Block 3 tried, state was 1
- - Hit, setting signal to : 0 
-Dependency check: Waiting on signal 0
-Signal Check: Block 4 tried, state was 1
- - Hit, setting signal to : 0 
-Dependency check: Waiting on signal 0
-Signal Check: Block 10 tried, state was 0
-Signal Check: Block 5 tried, state was 1
- - Hit, setting signal to : 0 
-Dependency check: Waiting on signal 0
-Signal Check: Block 1 tried, state was 1
- - Hit, setting signal to : 0 
-Dependency check: Waiting on signal 0
-Signal Check: Block 7 tried, state was 0
-Signal Check: Block 8 tried, state was 0
-Signal Check: Block 17 tried, state was 0
-Signal Check: Block 9 tried, state was 0
+Number of blocks found : 12
 Signal Check: Block 0 tried, state was 1
- - Hit, setting signal to : 0 
+Signal Get: Block 0 has been taken, state was 1 - Signal got- Signal is now 0 
 Block 0 has been sent a SIG PRIME
-Block 5 has been sent a SIGNAL, status was 0 is now 1
 Block 4 has been sent a SIGNAL, status was 0 is now 1
 Block 3 has been sent a SIGNAL, status was 0 is now 1
 Block 2 has been sent a SIGNAL, status was 0 is now 1
 Block 1 has been sent a SIGNAL, status was 0 is now 1
-Signal Check: Block 16 tried, state was 0
-Signal Check: Block 19 tried, state was 0
-Signal Check: Block 12 tried, state was 0
-Signal Check: Block 15 tried, state was 0
-Signal Check: Block 18 tried, state was 0
-Signal Check: Block 14 tried, state was 0
-Signal Check: Block 13 tried, state was 0
+Signal Check: Block 1 tried, state was 1
+Dependency check: Waiting on signal 0, it is 1
+Signal Get: Block 1 has been taken, state was 1 - Signal got- Signal is now 0 
+Block 1 has been sent a SIG PRIME
+Block 5 has been sent a SIGNAL, status was 0 is now 1
 Signal Check: Block 2 tried, state was 1
- - Hit, setting signal to : 0 
-Dependency check: Waiting on signal 0
+Dependency check: Waiting on signal 0, it is 1
+Signal Get: Block 2 has been taken, state was 1 - Signal got- Signal is now 0 
 Block 2 has been sent a SIG PRIME
-Block 7 has been sent a SIGNAL, status was 0 is now 1
-Signal Check: Block 16 tried, state was 0
-Signal Check: Block 19 tried, state was 0
-Signal Check: Block 12 tried, state was 0
-Signal Check: Block 15 tried, state was 0
-Signal Check: Block 18 tried, state was 0
-Signal Check: Block 14 tried, state was 0
-Signal Check: Block 13 tried, state was 0
-Signal Check: Block 2 tried, state was 0
+Block 5 has been sent a SIGNAL, status was 1 is now 1
 Signal Check: Block 3 tried, state was 1
- - Hit, setting signal to : 0 
-Dependency check: Waiting on signal 0
+Dependency check: Waiting on signal 0, it is 1
+Signal Get: Block 3 has been taken, state was 1 - Signal got- Signal is now 0 
 Block 3 has been sent a SIG PRIME
-Block 7 has been sent a SIGNAL, status was 1 is now 1
-Signal Check: Block 16 tried, state was 0
-Signal Check: Block 19 tried, state was 0
-Signal Check: Block 12 tried, state was 0
-Signal Check: Block 15 tried, state was 0
-Signal Check: Block 18 tried, state was 0
-Signal Check: Block 14 tried, state was 0
-Signal Check: Block 13 tried, state was 0
-Signal Check: Block 2 tried, state was 0
-Signal Check: Block 3 tried, state was 0
+Block 5 has been sent a SIGNAL, status was 1 is now 1
 Signal Check: Block 4 tried, state was 1
- - Hit, setting signal to : 0 
-Dependency check: Waiting on signal 0
+Dependency check: Waiting on signal 0, it is 1
+Signal Get: Block 4 has been taken, state was 1 - Signal got- Signal is now 0 
 Block 4 has been sent a SIG PRIME
-Block 7 has been sent a SIGNAL, status was 1 is now 1
-Signal Check: Block 16 tried, state was 0
-Signal Check: Block 19 tried, state was 0
-Signal Check: Block 12 tried, state was 0
-Signal Check: Block 15 tried, state was 0
-Signal Check: Block 18 tried, state was 0
-Signal Check: Block 14 tried, state was 0
-Signal Check: Block 13 tried, state was 0
-Signal Check: Block 2 tried, state was 0
-Signal Check: Block 3 tried, state was 0
-Signal Check: Block 4 tried, state was 0
-Signal Check: Block 10 tried, state was 0
+Block 5 has been sent a SIGNAL, status was 1 is now 1
 Signal Check: Block 5 tried, state was 1
- - Hit, setting signal to : 0 
-Dependency check: Waiting on signal 0
+Dependency check: Waiting on signal 4, it is 1
+Dependency check: Waiting on signal 3, it is 1
+Dependency check: Waiting on signal 2, it is 1
+Dependency check: Waiting on signal 1, it is 1
+Signal Get: Block 5 has been taken, state was 1 - Signal got- Signal is now 0 
+Block 5 has been sent a SIG PRIME
+Block 7 has been sent a SIGNAL, status was 0 is now 1
+Signal Check: Block 6 tried, state was 0
+Signal Check: Block 7 tried, state was 1
+Signal Get: Block 7 has been taken, state was 1 - Signal got- Signal is now 0 
 Block 7 has been sent a SIG PRIME
-Block 8 has been sent a SIG PRIME
 Block 9 has been sent a SIGNAL, status was 0 is now 1
-Signal Check: Block
+Block 8 has been sent a SIGNAL, status was 0 is now 1
+Signal Check: Block 8 tried, state was 1
+Dependency check: Waiting on signal 7, it is 1
+Signal Get: Block 8 has been taken, state was 1 - Signal got- Signal is now 0 
+Block 8 has been sent a SIG PRIME
+Block 10 has been sent a SIGNAL, status was 0 is now 1
+WinWinWinWinWinWinWinWinWinWinWinWin 1
+Signal Check: Block 9 tried, state was 1
+Dependency check: Waiting on signal 7, it is 1
+Signal Get: Block 9 has been taken, state was 1 - Signal got- Signal is now 0 
+Block 9 has been sent a SIG PRIME
+Block 10 has been sent a SIGNAL, status was 1 is now 1
+Signal Check: Block 10 tried, state was 1
+Dependency check: Waiting on signal 9, it is 1
+Dependency check: Waiting on signal 8, it is 1
+Signal Get: Block 10 has been taken, state was 1 - Signal got- Signal is now 0 
+Block 10 has been sent a SIG PRIME
+Block 11 has been sent a SIGNAL, status was 0 is now 1
+Signal Check: Block 11 tried, state was 1
+Signal Get: Block 11 has been taken, state was 1 - Signal got- Signal is now 0 
+Block 11 has been sent a SIG PRIME

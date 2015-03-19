@@ -5,7 +5,7 @@
 
 extern "C" {
 
-bool D = false;  
+bool D = true;  
 int num_sig;
 bool sig[100];
 bool sigPrime[100];
@@ -25,7 +25,7 @@ bool
       sigPrime[i] = false;
     }
 
-    sigPrime[0] = true;
+    sig[0] = true;
     return true;
   }
 
@@ -33,12 +33,13 @@ bool
 void AG(sig)(int blockNum) {
   if (D) printf("Block %d has been sent a SIGNAL, status was %d is now 1\n",blockNum,sig[blockNum]);
   sig[blockNum] = true;
-
+  sigPrime[blockNum] = false;
 }
 
 void AG(sigPrime)(int blockNum) {
   if (D) printf("Block %d has been sent a SIG PRIME\n",blockNum);
   sigPrime[blockNum] = true; 
+  sig[blockNum] = false;
 }
 
 
@@ -51,13 +52,21 @@ AG(sigTry)(int blockNum) {
   return 0;
 }
 
-int
+bool
 AG(sigGet)(int blockNum) {
   if (D) printf("Signal Get: Block %d has been taken, state was %d ",blockNum,sig[blockNum]);
-  sig[blockNum] = false;
-  if (D) printf(" is now %d \n",sig[blockNum]);
+  if (sig[blockNum]) {
+    if (D) printf("- Signal got");
+    sig[blockNum] = false; // <-- MAKE THIS ATOMIC
+    if (D) printf("- Signal is now %d \n",sig[blockNum]);
+    return 1;
+  } 
+  
+  if (D) printf("- Signal get failed");
+  if (D) printf("- Signal is still %d \n",sig[blockNum]);
   return 0;
 }
+
 bool
 AG(sigDep)(int blockNum) {
   if (D) printf("Dependency check: Waiting on signal %d, it is %d\n",blockNum, sigPrime[blockNum]);

@@ -45,21 +45,128 @@ AugmentPass::runOnModule(Module &module) {
   auto *sigPrime  = module.getOrInsertFunction("Augment_sigPrime", helperTy);  
 
   auto *init  = module.getOrInsertFunction("Augment_init", helperTy);  
-  auto *writeOut  = module.getOrInsertFunction("Augment_writeOut", voidFunTy);
   auto *printTrue  = module.getOrInsertFunction("Augment_printTrue", helperTy);
   auto *printFalse  = module.getOrInsertFunction("Augment_printFalse", helperTy);
   auto *doNOP  = module.getOrInsertFunction("Augment_doNOP", voidFunTy);
-  appendToGlobalDtors(module, llvm::cast<Function>(writeOut), 0); 
-//  auto *recBlock  = module.getOrInsertFunction("Augment_recBlock", intFunTy);
 
+  BasicBlock *blockList[bbNode_map.size()];
+
+
+  for (auto b : bbNode_map) {      
+    blockList[b.second.name] = b.first;
+  }
 
   for (auto b : bbNode_map) {
-    if ((*b.first).size() == 0) continue;
-    outs() << (*b.first) << "\n";
-//    IRBuilder<> dbBuilder((*b.first).getTerminator());
-//    dbBuilder.CreateCall(doNOP,params);
+    BasicBlock *sigBlock = b.first;
+    IRBuilder<> dbBuilder(&(*sigBlock).front());
+    BasicBlock *nextSigBlock;
 
+    if (b.second.name < bbNode_map.size() -1) {
+      nextSigBlock = blockList[b.second.name+1];
+    }    else {
+      nextSigBlock = blockList[0];
+    }
+
+    //Split our current block into 3, signal, dependency, and data
+    SplitBlockAndInsertIfThen(dbBuilder.getInt1(1),dyn_cast<Instruction>(&(*sigBlock).front()),false);
+    BasicBlock *depBlock = (*(*sigBlock).getTerminator()).getSuccessor(0);
+    BasicBlock *dataBlock = (*(*sigBlock).getTerminator()).getSuccessor(1);
+
+    //Signal block
+    b.second.sigBlock = sigBlock;
+    dbBuilder.SetInsertPoint(&(*sigBlock).front());
+    CallInst *sigCheck = dbBuilder.CreateCall(sigTry,dbBuilder.getInt64(b.second.name));
+    Value *cmpVal = dbBuilder.CreateICmpEQ(sigCheck,dbBuilder.getInt1(1));
+    BranchInst *sigBranch = dyn_cast<BranchInst>((*sigBlock).getTerminator());
+    (*sigBranch).setSuccessor(0, depBlock);
+    (*sigBranch).setSuccessor(1, nextSigBlock);
+    (*sigBranch).setCondition(cmpVal);
+
+    //Dependency block
+    b.second.depBlock = depBlock;
+    dbBuilder.SetInsertPoint(&(*depBlock).front());
+    if (D) dbBuilder.CreateCall(printTrue,dbBuilder.getInt64(b.second.name));
+    Value *depVal = dbBuilder.getTrue();
+    bool dependencies = false;
+    for (auto &p : b.second.parents) {
+      for (auto &cEdge : p.second) {
+        if (cEdge != "data") {
+          CallInst *dep = dbBuilder.CreateCall(sigDep,dbBuilder.getInt64(bbNode_map[p.first].name));
+          depVal = dbBuilder.CreateAnd(dyn_cast<Value>(dep),depVal);
+          dependencies = true;
+        }
+      }
+    }
+    //Signal & dependencies met, actually signal (required to be atomic)
+    CallInst *sigGetCall = dbBuilder.CreateCall(sigGet,dbBuilder.getInt64(b.second.name));
+    depVal = dbBuilder.CreateAnd(dyn_cast<Value>(sigGetCall),depVal);
+    Value *depCMPVal = dbBuilder.CreateICmpEQ(depVal,dbBuilder.getInt1(1));
+    BranchInst *depBranch = dyn_cast<BranchInst>((*depBlock).getTerminator());
+    BranchInst *newBranch = BranchInst::Create(dataBlock,nextSigBlock,depCMPVal);
+    ReplaceInstWithInst(depBranch,newBranch);
+
+ 
+    //Data block
+    b.second.dataBlock = dataBlock;
+    dbBuilder.SetInsertPoint(&(*dataBlock).front());
+    if (D) dbBuilder.CreateCall(printFalse,dbBuilder.getInt64(b.second.name));
+
+    //Add 'data block complete' signal to end of block (sigPrime)
+    dbBuilder.CreateCall(sigPrime,dbBuilder.getInt64(b.second.name));
+
+    //For unconditional data blocks (returns return, and conditional branchs make branch then signal accordingly)
+    TerminatorInst *blockTerm = (*dataBlock).getTerminator();
+    if ((*blockTerm).getNumSuccessors() == 1) { //Branch is unconditional
+      //Add signals for child blocks (sig)
+      for (auto &c : b.second.children) {
+        for (auto &cEdge : c.second) {
+          if (cEdge != "data") {
+            dbBuilder.CreateCall(sig,dbBuilder.getInt64(bbNode_map[c.first].name));
+          }
+        }
+      }
+      //Set terminator to go to next signal block
+      (*blockTerm).setSuccessor(0,nextSigBlock); 
+    } else if ((*blockTerm).getNumSuccessors() == 2) { //Conditional branch      
+      BranchInst *dataCond = dyn_cast<BranchInst>(blockTerm);
+      TerminatorInst *dataTerm = SplitBlockAndInsertIfThen((*dataCond).getCondition(),dyn_cast<Instruction>(blockTerm),false);
+      BasicBlock *dataTrueBlock = (*(*dataBlock).getTerminator()).getSuccessor(0);
+      (*(*dataTrueBlock).getTerminator()).setSuccessor(0,nextSigBlock);
+      BasicBlock *dataFalseBlock = (*(*dataBlock).getTerminator()).getSuccessor(1);
+      BranchInst *dataFalseBranch = dyn_cast<BranchInst>((*dataFalseBlock).getTerminator());
+      BranchInst *newDataBranch = BranchInst::Create(nextSigBlock);
+      ReplaceInstWithInst(dataFalseBranch,newDataBranch);
+      (*(*dataFalseBlock).getTerminator()).setSuccessor(0,nextSigBlock);
+//      (*(*dataFalseBlock).getTerminator()).setSuccessor(1,nextSigBlock);
+
+      for (auto &c : b.second.children) {
+        for (auto &cEdge : c.second) {
+          if (cEdge == "control" || cEdge == "control0") {
+            dbBuilder.SetInsertPoint(&(*dataTrueBlock).front());
+            dbBuilder.CreateCall(sig,dbBuilder.getInt64(bbNode_map[c.first].name));
+          }
+          else if (cEdge == "control1") {
+            dbBuilder.SetInsertPoint(&(*dataFalseBlock).front());
+            dbBuilder.CreateCall(sig,dbBuilder.getInt64(bbNode_map[c.first].name));
+          }
+        }
+      }
+    }
+    bbNode_map[b.first] = b.second; //Update map
+
+  } //End of bbNode_map loop
+
+  for (auto &f : module) {
+    if (f.getName() == "main") {
+      BasicBlock *orig = ((*f.getEntryBlock().getTerminator()).getParent());
+      BasicBlock *b = BasicBlock::Create(context,"entry",&f,&f.getEntryBlock());
+      IRBuilder<> funBuilder(b);
+      funBuilder.CreateCall(init,funBuilder.getInt64(bbNode_map.size()));
+      // XxX Insert initialization instrumentation here XxX // 
+      funBuilder.CreateBr(orig);
+    }
   }
+
 
   /*
   BasicBlock *curBlock;

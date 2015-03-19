@@ -67,7 +67,9 @@ struct bbNode {
   vector<Value*> contents;
   unordered_map<BasicBlock*, unordered_set<string>> parents;
   unordered_map<BasicBlock*, unordered_set<string>> children;
-  BasicBlock* signalBlock;
+  BasicBlock* nextSigBlock;
+  BasicBlock* dataBlock;
+  BasicBlock* sigBlock;
   BasicBlock* depBlock;
 };
 
